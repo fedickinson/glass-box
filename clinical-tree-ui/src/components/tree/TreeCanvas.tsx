@@ -73,6 +73,11 @@ export default function TreeCanvas({
     (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
   )
 
+  // Map each node to its position in the sorted order so visibility checks use
+  // array index (not step_index). Multiple nodes share the same step_index value
+  // (branch siblings), so step_index !== array position and the old check was wrong.
+  const nodeRevealIndex = new Map(orderedNodes.map((n, i) => [n.id, i]))
+
   const selectedNode =
     focusState.mode === 'branch_focused' && focusState.selectedNodeId
       ? nodes.find(n => n.id === focusState.selectedNodeId)
@@ -178,7 +183,7 @@ export default function TreeCanvas({
           focusRole={computeFocusRole(node, focusState, selectedNode)}
           isPruned={prunedBranchIds.has(node.branch_id)}
           pruneSource={pruneSourceMap.get(node.branch_id)}
-          isVisible={(node.step_index ?? 0) <= growthCursor}
+          isVisible={(nodeRevealIndex.get(node.id) ?? 0) <= growthCursor}
           isDecisionAutoPaused={node.id === decisionAutoPausedNodeId}
           isHovered={hoveredNodeId === node.id}
           annotations={annotationsByNode.get(node.id) ?? []}

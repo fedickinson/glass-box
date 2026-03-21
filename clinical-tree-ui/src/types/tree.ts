@@ -234,7 +234,13 @@ export type FocusState =
  */
 export type GrowthPlaybackState =
   | { mode: 'idle' }
-  | { mode: 'playing'; cursor: number; speed: GrowthSpeed }
+  | {
+      mode: 'playing'
+      cursor: number
+      speed: GrowthSpeed
+      /** Branch the camera (and optional growth filter) follows after a branch choice */
+      chosenBranchId?: string
+    }
   | { mode: 'paused_at_decision'; cursor: number; decisionNodeId: string }
   | { mode: 'paused_manual'; cursor: number }
   | { mode: 'paused_exploring'; cursor: number; previousFocusMode: 'paused_at_decision' | 'paused_manual' }

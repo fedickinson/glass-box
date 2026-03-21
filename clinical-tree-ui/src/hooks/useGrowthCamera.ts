@@ -55,6 +55,11 @@ export function useGrowthCamera(
       (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
     )
 
+    // Build index map (same logic as TreeCanvas) so camera queries match visibility
+    const nodeRevealIndex = new Map(orderedNodes.map((n, i) => [n.id, i]))
+    const visibleAtCursor = (cursor: number) =>
+      orderedNodes.filter((_, i) => i <= cursor).map(n => n.id)
+
     // ── paused_at_decision ────────────────────────────────────────────
     if (growth.mode === 'paused_at_decision') {
       const decisionNode = tree.nodes.find(n => n.id === growth.decisionNodeId)
@@ -65,10 +70,7 @@ export function useGrowthCamera(
         vp.panToNode(decisionNode, DECISION_SCALE)
       } else {
         // Overview: fit all nodes visible at this cursor
-        const visibleIds = orderedNodes
-          .filter(n => (n.step_index ?? 0) <= growth.cursor)
-          .map(n => n.id)
-        vp.fitBranch(visibleIds, tree.nodes, 400)
+        vp.fitBranch(visibleAtCursor(growth.cursor), tree.nodes, 400)
       }
       return
     }
@@ -79,18 +81,21 @@ export function useGrowthCamera(
     if (!currentNode) return
 
     if (cameraMode === 'follow') {
-      // Only move camera for primary-path nodes and decision points —
-      // branch nodes appear off to the sides and don't need camera attention.
-      if (currentNode.isOnPrimaryPath || currentNode.is_decision_point) {
-        const scale = cursor === 0 ? FOLLOW_SCALE : undefined // lock scale on first node
+      // If the user chose a branch after a decision, follow that branch.
+      // Otherwise follow the primary path.
+      const chosenBranch = (growth as { chosenBranchId?: string }).chosenBranchId
+      const isFollowed = chosenBranch
+        ? currentNode.branch_id === chosenBranch
+        : currentNode.isOnPrimaryPath || currentNode.is_decision_point
+      if (isFollowed) {
+        const scale = cursor === 0 ? FOLLOW_SCALE : undefined
         vp.panToNode(currentNode, scale)
       }
     } else {
       // Overview: keep fitting all visible nodes, faster animation so it feels live
-      const visibleIds = orderedNodes
-        .filter(n => (n.step_index ?? 0) <= cursor)
-        .map(n => n.id)
-      vp.fitBranch(visibleIds, tree.nodes, 180)
+      vp.fitBranch(visibleAtCursor(cursor), tree.nodes, 180)
     }
+    // suppress unused var warning
+    void nodeRevealIndex
   }, [growth, cameraMode, tree, viewportRef])
 }

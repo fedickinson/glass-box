@@ -285,15 +285,30 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     case 'RESUME_GROWTH': {
       const g = state.growth
       if (g.mode === 'paused_at_decision') {
-        return { ...state, growth: { mode: 'playing', cursor: g.cursor, speed: 200 } }
+        // If user clicked a branch while paused, carry that choice forward so
+        // the camera follows it.
+        const chosenBranchId =
+          state.focusState.mode === 'branch_focused'
+            ? state.focusState.branchId
+            : undefined
+        return {
+          ...state,
+          growth: { mode: 'playing', cursor: g.cursor, speed: 200, chosenBranchId },
+          focusState: { mode: 'idle' },
+        }
       }
       if (g.mode === 'paused_manual') {
         return { ...state, growth: { mode: 'playing', cursor: g.cursor, speed: 200 } }
       }
       if (g.mode === 'paused_exploring') {
+        // Same: if the user navigated to a branch, keep following it
+        const chosenBranchId =
+          state.focusState.mode === 'branch_focused'
+            ? state.focusState.branchId
+            : undefined
         return {
           ...state,
-          growth: { mode: 'playing', cursor: g.cursor, speed: 200 },
+          growth: { mode: 'playing', cursor: g.cursor, speed: 200, chosenBranchId },
           focusState: { mode: 'idle' },
         }
       }
@@ -360,6 +375,13 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       )
       const nextNode = orderedNodes[nextCursor]
       if (nextNode?.is_decision_point) {
+        // Advance cursor past all immediate children of this decision so they
+        // all pop up simultaneously at the moment of pause — showing the fork.
+        const childIds = new Set(nextNode.children)
+        let forkCursor = nextCursor
+        orderedNodes.forEach((n, i) => {
+          if (childIds.has(n.id)) forkCursor = Math.max(forkCursor, i)
+        })
         const entry = audit({
           type: 'system',
           summary: `Decision point: ${nextNode.headline}`,
@@ -371,7 +393,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
           ...state,
           growth: {
             mode: 'paused_at_decision',
-            cursor: nextCursor,
+            cursor: forkCursor,
             decisionNodeId: nextNode.id,
           },
           auditLog: [...state.auditLog, entry],
