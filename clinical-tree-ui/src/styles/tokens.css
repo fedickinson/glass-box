@@ -1,0 +1,182 @@
+/*
+ * Clinical Reasoning Tree — Design Tokens (Semantic Colors Only)
+ *
+ * IMPORTANT: These CSS custom properties are for SEMANTIC COLORS ONLY —
+ * the domain-specific palette that encodes clinical meaning (node types,
+ * shield severities, connection styles).
+ *
+ * ALL layout, spacing, typography, borders, and general styling should
+ * use Tailwind CSS utility classes directly in JSX. Do not create
+ * additional CSS custom properties for spacing, font sizes, or generic
+ * colors — use Tailwind's built-in scale for those.
+ *
+ * These tokens should be mapped into tailwind.config.ts as extended
+ * theme colors so they're available as regular Tailwind classes:
+ *   bg-node-thought  →  var(--node-thought-fill)
+ *   border-node-tool  →  var(--node-tool-border)
+ *   etc.
+ *
+ * For cases where Tailwind theme mapping isn't set up yet, use
+ * arbitrary value syntax: bg-[var(--node-thought-fill)]
+ *
+ * Import at app root: import './styles/tokens.css'
+ */
+
+:root {
+  /* ============================================================
+   * Neutral palette
+   * ============================================================ */
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8f8f6;
+  --surface-tertiary: #f0efec;
+  --surface-elevated: #ffffff;
+
+  --text-primary: #1a1a19;
+  --text-secondary: #5c5c58;
+  --text-tertiary: #8a8a84;
+
+  --border-default: rgba(0, 0, 0, 0.12);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.2);
+
+  /* ============================================================
+   * Node type colors — Reasoning (blue)
+   * ============================================================ */
+  --node-thought-fill: #EDF4FC;
+  --node-thought-border: #3B7DD8;
+  --node-thought-text: #1a5098;
+  --node-thought-label: #3B7DD8;
+
+  /* ============================================================
+   * Node type colors — Tool/Evidence (green)
+   * ============================================================ */
+  --node-tool-fill: #EEF6F0;
+  --node-tool-border: #2D8A56;
+  --node-tool-text: #1c6138;
+  --node-tool-label: #2D8A56;
+
+  /* ============================================================
+   * Node type colors — Citation (purple)
+   * ============================================================ */
+  --node-citation-fill: #F4F0FA;
+  --node-citation-border: #7B5EA7;
+  --node-citation-text: #5a3f82;
+  --node-citation-label: #7B5EA7;
+
+  /* ============================================================
+   * Node type colors — Decision point (amber)
+   * ============================================================ */
+  --node-decision-fill: #FFF8ED;
+  --node-decision-border: #D4950A;
+  --node-decision-glow: rgba(212, 149, 10, 0.1);
+  --node-decision-text: #8a6200;
+  --node-decision-label: #B8800A;
+
+  /* ============================================================
+   * Node type colors — Flagged/Pruned (red)
+   * ============================================================ */
+  --node-flagged-fill: #FEF0EE;
+  --node-flagged-border: #C53D2F;
+  --node-flagged-text: #922218;
+  --node-flagged-label: #C53D2F;
+
+  /* ============================================================
+   * Shield severity badges
+   * ============================================================ */
+  --shield-safety-bg: #FEF0EE;
+  --shield-safety-text: #C53D2F;
+  --shield-guideline-bg: #FFF5EB;
+  --shield-guideline-text: #B8700A;
+  --shield-correctness-bg: #FFFBE6;
+  --shield-correctness-text: #8A7A10;
+  --shield-traceability-bg: var(--surface-secondary);
+  --shield-traceability-text: var(--text-tertiary);
+
+  /* ============================================================
+   * Connection styles
+   * ============================================================ */
+  --conn-primary-color: #3B7DD8;
+  --conn-primary-width: 2.5px;
+  --conn-primary-opacity: 0.6;
+
+  --conn-branch-color: var(--border-default);
+  --conn-branch-width: 1px;
+  --conn-branch-opacity: 0.4;
+
+  --conn-convergence-color: #2D8A56;
+  --conn-convergence-width: 1.5px;
+  --conn-convergence-opacity: 0.5;
+
+  --conn-pruned-color: #C53D2F;
+  --conn-pruned-width: 1px;
+  --conn-pruned-opacity: 0.2;
+
+  /* ============================================================
+   * Animation (keep as CSS vars — Tailwind's transition durations
+   * don't have our specific timing values)
+   * ============================================================ */
+  --anim-node-enter: 200ms ease-out;
+  --anim-prune: 300ms ease-in-out;
+  --anim-selection: 150ms ease-out;
+  --anim-growth-stagger: 100ms;
+}
+
+/* ============================================================
+ * Dark mode overrides
+ * ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-primary: #1a1a18;
+    --surface-secondary: #242422;
+    --surface-tertiary: #2c2c2a;
+    --surface-elevated: #2a2a28;
+
+    --text-primary: #e8e6df;
+    --text-secondary: #a8a69e;
+    --text-tertiary: #6e6d68;
+
+    --border-default: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.2);
+
+    /* Node fills — darker backgrounds */
+    --node-thought-fill: #1a2a3d;
+    --node-thought-border: #5a9de6;
+    --node-thought-text: #7bb8f0;
+    --node-thought-label: #7bb8f0;
+
+    --node-tool-fill: #1a2d22;
+    --node-tool-border: #4db876;
+    --node-tool-text: #6dd498;
+    --node-tool-label: #6dd498;
+
+    --node-citation-fill: #251e35;
+    --node-citation-border: #a684d4;
+    --node-citation-text: #c0a4e8;
+    --node-citation-label: #c0a4e8;
+
+    --node-decision-fill: #2d2510;
+    --node-decision-border: #e6a912;
+    --node-decision-glow: rgba(230, 169, 18, 0.15);
+    --node-decision-text: #f0c040;
+    --node-decision-label: #f0c040;
+
+    --node-flagged-fill: #2d1a18;
+    --node-flagged-border: #e05545;
+    --node-flagged-text: #f07060;
+    --node-flagged-label: #f07060;
+
+    /* Shield badges — dark */
+    --shield-safety-bg: #2d1a18;
+    --shield-safety-text: #f07060;
+    --shield-guideline-bg: #2d2210;
+    --shield-guideline-text: #f0b040;
+    --shield-correctness-bg: #2d2a10;
+    --shield-correctness-text: #e0d040;
+
+    /* Connections — slightly brighter in dark mode */
+    --conn-primary-color: #5a9de6;
+    --conn-primary-opacity: 0.7;
+    --conn-convergence-color: #4db876;
+  }
+}
