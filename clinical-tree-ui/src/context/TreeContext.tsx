@@ -29,8 +29,17 @@ interface TreeContextValue {
 
 const TreeContext = createContext<TreeContextValue | null>(null)
 
-export function TreeProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(treeReducer, INITIAL_STATE)
+export function TreeProvider({
+  children,
+  initialTree,
+}: {
+  children: React.ReactNode
+  initialTree?: PositionedTree
+}) {
+  const initial: TreeUIState = initialTree
+    ? { ...INITIAL_STATE, tree: initialTree }
+    : INITIAL_STATE
+  const [state, dispatch] = useReducer(treeReducer, initial)
   return (
     <TreeContext.Provider value={{ state, dispatch }}>
       {children}

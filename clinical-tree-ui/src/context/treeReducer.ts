@@ -1,5 +1,6 @@
 /** treeReducer — handles all TreeAction types for the clinical reasoning tree UI state */
 import { TreeUIState, TreeAction } from '../types/tree'
+import { buildBranchPath } from '../data/transformer'
 
 export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState {
   switch (action.type) {
@@ -9,10 +10,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     case 'SELECT_NODE': {
       const node = state.tree.nodes.find(n => n.id === action.nodeId)
       if (!node) return state
-      const branchNodeIds = state.tree.nodes
-        .filter(n => n.branch_id === node.branch_id)
-        .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
-        .map(n => n.id)
+      const branchNodeIds = buildBranchPath(node.branch_id, state.tree.nodes)
       const selectedNodeIndex = branchNodeIds.indexOf(action.nodeId)
       return {
         ...state,
@@ -27,10 +25,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     }
 
     case 'FOCUS_BRANCH': {
-      const branchNodeIds = state.tree.nodes
-        .filter(n => n.branch_id === action.branchId)
-        .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
-        .map(n => n.id)
+      const branchNodeIds = buildBranchPath(action.branchId, state.tree.nodes)
       return {
         ...state,
         focusState: {

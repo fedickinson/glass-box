@@ -1,10 +1,16 @@
-/** App — Stage 1 layout shell: patient bar + two-panel split (tree 65% / synthesis 35%) */
+/** App — layout shell + tree rendering: patient bar, TreeViewport→TreeCanvas, synthesis panel */
 import React from 'react'
 import { TreeProvider, useTreeContext } from './context/TreeContext'
 import { useTreeKeyboard } from './hooks/useTreeKeyboard'
 import { useGrowthTimer } from './hooks/useGrowthTimer'
 import { useViewportControl } from './hooks/useViewportControl'
-import { MOCK_PATIENT_CONTEXT, MOCK_SYNTHESIS } from './data/mockTree'
+import { MOCK_PATIENT_CONTEXT, MOCK_SYNTHESIS, mockTreeNodes } from './data/mockTree'
+import { transformTree } from './data/transformer'
+import TreeViewport from './components/tree/TreeViewport'
+import TreeCanvas from './components/tree/TreeCanvas'
+
+// Transform mock data once at module level — swapped for real API data in production
+const POSITIONED_TREE = transformTree(mockTreeNodes)
 
 // ─── Inner layout — has access to TreeContext ──────────────────────
 function AppLayout() {
@@ -124,21 +130,22 @@ function AppLayout() {
             borderRight: '1px solid rgba(0,0,0,0.07)',
           }}
         >
-          <div className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <div
-                className="text-[10px] font-bold uppercase tracking-[0.12em]"
-                style={{ color: 'rgba(0,0,0,0.22)' }}
-              >
-                Stage 2
-              </div>
-              <div className="text-[15px] font-medium" style={{ color: 'rgba(0,0,0,0.32)' }}>
-                Tree renders here
-              </div>
-              <div className="text-[11px]" style={{ color: 'rgba(0,0,0,0.2)' }}>
-                Context wired · {state.tree.nodes.length} nodes · focus: {state.focusState.mode}
-              </div>
-            </div>
+          <div className="flex-1 overflow-hidden">
+            <TreeViewport>
+              <TreeCanvas
+                nodes={state.tree.nodes}
+                connections={state.tree.connections}
+                convergences={state.tree.convergences}
+                focusState={state.focusState}
+                prunedBranchIds={state.prunedBranchIds}
+                pruneSourceMap={state.pruneSourceMap}
+                growthCursor={Infinity}
+                viewMode={state.viewMode}
+                annotations={state.annotations}
+                onNodeClick={id => dispatch({ type: 'SELECT_NODE', nodeId: id })}
+                onCanvasClick={() => dispatch({ type: 'CLEAR_FOCUS' })}
+              />
+            </TreeViewport>
           </div>
         </div>
 
@@ -319,10 +326,10 @@ function Divider() {
   )
 }
 
-// ─── Root — wraps layout in TreeProvider ──────────────────────────
+// ─── Root — wraps layout in TreeProvider with transformed mock data ──
 export default function App() {
   return (
-    <TreeProvider>
+    <TreeProvider initialTree={POSITIONED_TREE}>
       <AppLayout />
     </TreeProvider>
   )
