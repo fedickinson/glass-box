@@ -23,9 +23,15 @@ const CANVAS_PAD = 40
 
 function computeFocusRole(
   node: PositionedNode,
-  focusState: FocusState
+  focusState: FocusState,
+  selectedNode: PositionedNode | undefined
 ): FocusRole {
   if (focusState.mode === 'idle') return 'none'
+  // Decision points are the pivot where branches diverge — don't dim anything
+  // when one is selected, because all outgoing paths are equally valid.
+  if (selectedNode?.is_decision_point) {
+    return node.id === focusState.selectedNodeId ? 'selected' : 'none'
+  }
   const { branchNodeIds, selectedNodeId } = focusState
   if (node.id === selectedNodeId) return 'selected'
   if (branchNodeIds.includes(node.id)) return 'on_focused_branch'
@@ -62,6 +68,11 @@ export default function TreeCanvas({
   const orderedNodes = [...nodes].sort(
     (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
   )
+
+  const selectedNode =
+    focusState.mode === 'branch_focused' && focusState.selectedNodeId
+      ? nodes.find(n => n.id === focusState.selectedNodeId)
+      : undefined
 
   return (
     <svg
@@ -115,39 +126,52 @@ export default function TreeCanvas({
         growthCursor={growthCursor}
       />
 
-      {/* ── Convergence indicators — green dashed arcs between terminal nodes ── */}
-      {convergences.map(conv => {
-        const terminals = conv.terminalNodeIds
-          .map(id => nodes.find(n => n.id === id))
-          .filter(Boolean) as PositionedNode[]
-        if (terminals.length < 2) return null
-        const first = terminals[0]
-        const last = terminals[terminals.length - 1]
-        const fx = first.x + first.width
-        const fy = first.y + first.height / 2
-        const lx = last.x + last.width
-        const ly = last.y + last.height / 2
-        const cx = Math.max(fx, lx) + 30
-        return (
-          <g key={conv.diagnosis} opacity={0.6}>
-            <path
-              d={`M ${fx},${fy} C ${cx},${fy} ${cx},${ly} ${lx},${ly}`}
-              fill="none"
-              stroke="var(--conn-convergence-color)"
-              strokeWidth={1.5}
-              strokeDasharray="5,3"
-              strokeOpacity={0.5}
-            />
-          </g>
-        )
-      })}
+      {/* ── Convergence badges — small pill on each terminal node in a convergence group ── */}
+      {convergences.map(conv =>
+        conv.terminalNodeIds.map(id => {
+          const node = nodes.find(n => n.id === id)
+          if (!node) return null
+          const bx = node.x + node.width + 6
+          const by = node.y + node.height / 2
+          return (
+            <g key={`conv-${conv.diagnosis}-${id}`}>
+              {/* Pill background */}
+              <rect
+                x={bx}
+                y={by - 9}
+                width={62}
+                height={18}
+                rx={9}
+                fill="var(--node-tool-fill)"
+                stroke="var(--conn-convergence-color)"
+                strokeWidth={1.2}
+                strokeOpacity={0.7}
+              />
+              <text
+                x={bx + 31}
+                y={by + 4.5}
+                textAnchor="middle"
+                style={{
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  fill: 'var(--conn-convergence-color)',
+                  letterSpacing: '0.06em',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                }}
+              >
+                ↗ CONVERGES
+              </text>
+            </g>
+          )
+        })
+      )}
 
       {/* ── Nodes ── */}
       {orderedNodes.map(node => (
         <TreeNode
           key={node.id}
           node={node}
-          focusRole={computeFocusRole(node, focusState)}
+          focusRole={computeFocusRole(node, focusState, selectedNode)}
           isPruned={prunedBranchIds.has(node.branch_id)}
           pruneSource={pruneSourceMap.get(node.branch_id)}
           isVisible={(node.step_index ?? 0) <= growthCursor}
