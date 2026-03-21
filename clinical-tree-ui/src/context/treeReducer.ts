@@ -22,8 +22,19 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       if (!node) return state
       const branchNodeIds = buildBranchPath(node.branch_id, state.tree.nodes)
       const selectedNodeIndex = branchNodeIds.indexOf(action.nodeId)
+      // During paused growth, clicking a node enters PAUSED_EXPLORING so the
+      // presenter can navigate without losing the paused growth state.
+      let nextGrowth = state.growth
+      if (state.growth.mode === 'paused_at_decision' || state.growth.mode === 'paused_manual') {
+        nextGrowth = {
+          mode: 'paused_exploring',
+          cursor: state.growth.cursor,
+          previousFocusMode: state.growth.mode,
+        }
+      }
       return {
         ...state,
+        growth: nextGrowth,
         focusState: {
           mode: 'branch_focused',
           branchId: node.branch_id,
@@ -249,9 +260,17 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     // ── Growth playback ────────────────────────────────────────────
 
     case 'START_GROWTH': {
+      const entry = audit({
+        type: 'system',
+        summary: 'System initiated reasoning exploration',
+        detail: null,
+        nodeId: null,
+        branchId: null,
+      })
       return {
         ...state,
         growth: { mode: 'playing', cursor: 0, speed: action.speed ?? 200 },
+        auditLog: [...state.auditLog, entry],
       }
     }
 
@@ -355,6 +374,23 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
             cursor: nextCursor,
             decisionNodeId: nextNode.id,
           },
+          auditLog: [...state.auditLog, entry],
+        }
+      }
+      // Log tool and citation nodes as they appear
+      if (nextNode?.type === 'tool' || nextNode?.type === 'citation') {
+        const entry = audit({
+          type: 'system',
+          summary: nextNode.type === 'tool'
+            ? `System queried: ${nextNode.tool_name ?? nextNode.headline}`
+            : `System referenced: ${nextNode.source ?? nextNode.headline}`,
+          detail: null,
+          nodeId: nextNode.id,
+          branchId: nextNode.branch_id,
+        })
+        return {
+          ...state,
+          growth: { ...state.growth, cursor: nextCursor },
           auditLog: [...state.auditLog, entry],
         }
       }

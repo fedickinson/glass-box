@@ -13,6 +13,7 @@ interface Props {
   prunedBranchIds: Set<string>
   pruneSourceMap: Map<string, 'shield' | 'doctor'>
   growthCursor: number
+  decisionAutoPausedNodeId: string | null
   viewMode: ViewMode
   annotations: DoctorAnnotation[]
   hoveredNodeId?: string | null
@@ -47,6 +48,7 @@ export default function TreeCanvas({
   prunedBranchIds,
   pruneSourceMap,
   growthCursor,
+  decisionAutoPausedNodeId,
   viewMode,
   annotations,
   hoveredNodeId,
@@ -177,7 +179,7 @@ export default function TreeCanvas({
           isPruned={prunedBranchIds.has(node.branch_id)}
           pruneSource={pruneSourceMap.get(node.branch_id)}
           isVisible={(node.step_index ?? 0) <= growthCursor}
-          isGrowthPaused={false}
+          isDecisionAutoPaused={node.id === decisionAutoPausedNodeId}
           isHovered={hoveredNodeId === node.id}
           annotations={annotationsByNode.get(node.id) ?? []}
           viewMode={viewMode}

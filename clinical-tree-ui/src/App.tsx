@@ -7,10 +7,11 @@ import { useViewportControl } from './hooks/useViewportControl'
 import { MOCK_PATIENT_CONTEXT, mockTreeNodes } from './data/mockTree'
 import { transformTree } from './data/transformer'
 import { computeSynthesis } from './data/computeSynthesis'
-import { GrowthPlaybackState } from './types/tree'
+import { GrowthPlaybackState, GrowthSpeed } from './types/tree'
 import TreeViewport, { TreeViewportHandle } from './components/tree/TreeViewport'
 import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
+import GrowthControls from './components/tree/GrowthControls'
 import NodeDetail from './components/tree/NodeDetail'
 import SynthesisPanel from './components/synthesis/SynthesisPanel'
 import AuditTrail from './components/AuditTrail'
@@ -139,6 +140,27 @@ function AppLayout() {
         {/* Right controls */}
         <div className="ml-auto flex items-center gap-2">
 
+          {/* Start Growth / growth status */}
+          {state.growth.mode === 'idle' && !showBaseline && (
+            <button
+              onClick={() => dispatch({ type: 'START_GROWTH', speed: 200 })}
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                padding: '5px 14px',
+                borderRadius: 20,
+                background: 'rgba(59,125,216,0.1)',
+                border: '1px solid rgba(59,125,216,0.25)',
+                color: '#1A52A8',
+                cursor: 'pointer',
+                transition: 'all 150ms ease-out',
+              }}
+            >
+              ▶ Start reasoning
+            </button>
+          )}
+
           {/* Audit trail toggle */}
           <button
             onClick={() => setShowAuditTrail(s => !s)}
@@ -224,6 +246,11 @@ function AppLayout() {
                     prunedBranchIds={state.prunedBranchIds}
                     pruneSourceMap={state.pruneSourceMap}
                     growthCursor={getGrowthCursor(state.growth)}
+                    decisionAutoPausedNodeId={
+                      state.growth.mode === 'paused_at_decision'
+                        ? state.growth.decisionNodeId
+                        : null
+                    }
                     viewMode={state.viewMode}
                     annotations={state.annotations}
                     hoveredNodeId={hoveredNodeId}
@@ -242,18 +269,32 @@ function AppLayout() {
                 />
               )}
 
-              {/* Branch scrubber — visible when branch focused */}
-              {isBranchFocused && focusBranch && state.growth.mode === 'idle' && (
-                <BranchScrubber
-                  branchNodeIds={focusBranch.branchNodeIds}
-                  nodes={state.tree.nodes}
-                  selectedIndex={focusBranch.selectedNodeIndex}
-                  onScrub={index => {
-                    const nodeId = focusBranch.branchNodeIds[index]
-                    if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
-                  }}
-                />
-              )}
+              {/* Bottom bar: BranchScrubber (idle) or GrowthControls (active growth) */}
+              {state.growth.mode === 'idle'
+                ? isBranchFocused && focusBranch && (
+                    <BranchScrubber
+                      branchNodeIds={focusBranch.branchNodeIds}
+                      nodes={state.tree.nodes}
+                      selectedIndex={focusBranch.selectedNodeIndex}
+                      onScrub={index => {
+                        const nodeId = focusBranch.branchNodeIds[index]
+                        if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
+                      }}
+                    />
+                  )
+                : (
+                    <GrowthControls
+                      growth={state.growth}
+                      totalNodes={state.tree.nodes.length}
+                      onPlay={() => dispatch({ type: 'RESUME_GROWTH' })}
+                      onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
+                      onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
+                      onStepBackward={() => dispatch({ type: 'STEP_BACKWARD' })}
+                      onSetSpeed={(speed: GrowthSpeed) => dispatch({ type: 'SET_GROWTH_SPEED', speed })}
+                      onSkipToEnd={() => dispatch({ type: 'SKIP_TO_END' })}
+                    />
+                  )
+              }
             </>
           )}
         </div>

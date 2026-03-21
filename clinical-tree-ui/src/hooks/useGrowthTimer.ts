@@ -1,12 +1,17 @@
-/** useGrowthTimer — growth animation timer stub. No-op in Stage 1; wired in Stage 5. */
-import React from 'react'
+/** useGrowthTimer — dispatches GROWTH_TICK at growth.speed intervals while playing */
+import { useEffect } from 'react'
 import { GrowthPlaybackState, TreeAction } from '../types/tree'
 
 export function useGrowthTimer(
-  _growth: GrowthPlaybackState,
-  _dispatch: React.Dispatch<TreeAction>
+  growth: GrowthPlaybackState,
+  dispatch: React.Dispatch<TreeAction>
 ): void {
-  // Stage 5: sets up a setInterval that dispatches GROWTH_TICK at growth.speed ms intervals.
-  // Auto-pauses when cursor reaches a decision point node (GROWTH_AUTO_PAUSE).
-  // Clears interval on pause/stop/unmount.
+  const isPlaying = growth.mode === 'playing'
+  const speed = isPlaying ? (growth as { speed: number }).speed : 200
+
+  useEffect(() => {
+    if (!isPlaying) return
+    const id = setInterval(() => dispatch({ type: 'GROWTH_TICK' }), speed)
+    return () => clearInterval(id)
+  }, [isPlaying, speed, dispatch])
 }

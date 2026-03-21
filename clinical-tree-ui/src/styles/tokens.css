@@ -121,4 +121,17 @@
   --anim-growth-stagger: 100ms;
 }
 
+/* ── Growth animation keyframes ────────────────────────────────────────────── */
+
+@keyframes decision-pulse {
+  0%   { r: 0;  stroke-opacity: 0.6; }
+  60%  { r: 42; stroke-opacity: 0.15; }
+  100% { r: 55; stroke-opacity: 0; }
+}
+
+@keyframes node-enter-opacity {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* Light mode only — dark mode support removed */
