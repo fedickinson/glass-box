@@ -1,5 +1,5 @@
 /** treeReducer — handles all TreeAction types for the clinical reasoning tree UI state */
-import { TreeUIState, TreeAction } from '../types/tree'
+import { TreeUIState, TreeAction, PositionedNode } from '../types/tree'
 import { buildBranchPath } from '../data/transformer'
 
 export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState {
@@ -67,8 +67,64 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     }
 
     case 'NAVIGATE_SIBLING_BRANCH': {
-      // Stage 3: find decision point in focused branch, jump to sibling branch
-      return state
+      if (state.focusState.mode !== 'branch_focused') return state
+      const { branchId, selectedNodeId } = state.focusState
+      if (!selectedNodeId) return state
+
+      const nodeMap = new Map(state.tree.nodes.map(n => [n.id, n]))
+      const selectedNode = nodeMap.get(selectedNodeId)
+      if (!selectedNode) return state
+
+      // Walk up from selected node to find the nearest decision point ancestor
+      let decisionPoint: PositionedNode | undefined
+      let curr: PositionedNode | undefined = selectedNode
+      while (curr) {
+        const parentId: string | null = curr.parent_id
+        const parent: PositionedNode | undefined = parentId ? nodeMap.get(parentId) : undefined
+        if (parent?.is_decision_point) {
+          decisionPoint = parent
+          break
+        }
+        curr = parent
+      }
+      // Also allow jumping from the decision point itself
+      if (!decisionPoint && selectedNode.is_decision_point) {
+        decisionPoint = selectedNode
+      }
+      if (!decisionPoint) return state
+
+      // All branches that fork from this decision point
+      const branchesFromDecision = [
+        ...new Set(
+          state.tree.nodes
+            .filter(n => n.parent_id === decisionPoint!.id)
+            .map(n => n.branch_id)
+        ),
+      ]
+      const currentIdx = branchesFromDecision.indexOf(branchId)
+      if (currentIdx === -1) return state
+
+      const nextIdx =
+        action.direction === 'down'
+          ? (currentIdx + 1) % branchesFromDecision.length
+          : (currentIdx - 1 + branchesFromDecision.length) % branchesFromDecision.length
+
+      const nextBranchId = branchesFromDecision[nextIdx]
+      if (!nextBranchId || nextBranchId === branchId) return state
+
+      const newBranchNodeIds = buildBranchPath(nextBranchId, state.tree.nodes)
+      const newIdx = Math.min(state.focusState.selectedNodeIndex, newBranchNodeIds.length - 1)
+
+      return {
+        ...state,
+        focusState: {
+          mode: 'branch_focused',
+          branchId: nextBranchId,
+          branchNodeIds: newBranchNodeIds,
+          selectedNodeId: newBranchNodeIds[newIdx] ?? null,
+          selectedNodeIndex: newIdx,
+        },
+      }
     }
 
     case 'CLEAR_FOCUS': {

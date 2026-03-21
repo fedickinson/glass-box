@@ -1,6 +1,6 @@
 /** TreeContext — React context + useReducer for all clinical reasoning tree UI state */
 import React, { createContext, useContext, useReducer } from 'react'
-import { TreeUIState, TreeAction, PositionedTree } from '../types/tree'
+import { TreeUIState, TreeAction, PositionedTree, PruneSource } from '../types/tree'
 import { treeReducer } from './treeReducer'
 
 const EMPTY_TREE: PositionedTree = {
@@ -22,6 +22,22 @@ const INITIAL_STATE: TreeUIState = {
   pinnedBranchId: null,
 }
 
+/** Pre-populate prunedBranchIds from nodes that were shield-flagged by the backend */
+function initPruned(tree: PositionedTree): {
+  prunedBranchIds: Set<string>
+  pruneSourceMap: Map<string, PruneSource>
+} {
+  const prunedBranchIds = new Set<string>()
+  const pruneSourceMap = new Map<string, PruneSource>()
+  tree.nodes.forEach(n => {
+    if (n.is_pruned && n.pruned_by) {
+      prunedBranchIds.add(n.branch_id)
+      pruneSourceMap.set(n.branch_id, n.pruned_by)
+    }
+  })
+  return { prunedBranchIds, pruneSourceMap }
+}
+
 interface TreeContextValue {
   state: TreeUIState
   dispatch: React.Dispatch<TreeAction>
@@ -37,7 +53,7 @@ export function TreeProvider({
   initialTree?: PositionedTree
 }) {
   const initial: TreeUIState = initialTree
-    ? { ...INITIAL_STATE, tree: initialTree }
+    ? { ...INITIAL_STATE, tree: initialTree, ...initPruned(initialTree) }
     : INITIAL_STATE
   const [state, dispatch] = useReducer(treeReducer, initial)
   return (

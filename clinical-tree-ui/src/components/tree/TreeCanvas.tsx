@@ -15,6 +15,7 @@ interface Props {
   growthCursor: number
   viewMode: ViewMode
   annotations: DoctorAnnotation[]
+  hoveredNodeId?: string | null
   onNodeClick: (nodeId: string) => void
   onCanvasClick: () => void
 }
@@ -48,6 +49,7 @@ export default function TreeCanvas({
   growthCursor,
   viewMode,
   annotations,
+  hoveredNodeId,
   onNodeClick,
   onCanvasClick,
 }: Props) {
@@ -176,6 +178,7 @@ export default function TreeCanvas({
           pruneSource={pruneSourceMap.get(node.branch_id)}
           isVisible={(node.step_index ?? 0) <= growthCursor}
           isGrowthPaused={false}
+          isHovered={hoveredNodeId === node.id}
           annotations={annotationsByNode.get(node.id) ?? []}
           viewMode={viewMode}
           onClick={() => onNodeClick(node.id)}

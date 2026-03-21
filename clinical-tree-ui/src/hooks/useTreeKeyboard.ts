@@ -1,4 +1,4 @@
-/** useTreeKeyboard — keyboard navigation handler stub. Logs key events; wired in Stage 3. */
+/** useTreeKeyboard — keyboard navigation: arrows, escape, space, enter, brackets */
 import React, { useEffect } from 'react'
 import { FocusState, GrowthPlaybackState, TreeAction } from '../types/tree'
 
@@ -9,37 +9,78 @@ export function useTreeKeyboard(
 ): void {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // Don't fire when typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) return
+
       switch (e.key) {
         case 'ArrowLeft':
-          console.log('[keyboard] ArrowLeft — navigate prev')
-          break
-        case 'ArrowRight':
-          console.log('[keyboard] ArrowRight — navigate next')
-          break
-        case 'ArrowUp':
-          console.log('[keyboard] ArrowUp — sibling branch up')
-          break
-        case 'ArrowDown':
-          console.log('[keyboard] ArrowDown — sibling branch down')
-          break
-        case 'Escape':
-          console.log('[keyboard] Escape — clear focus')
-          break
-        case ' ':
-          console.log('[keyboard] Space — toggle growth play/pause')
           e.preventDefault()
+          if (focusState.mode === 'branch_focused') {
+            dispatch({ type: 'NAVIGATE_PREV' })
+          }
           break
+
+        case 'ArrowRight':
+          e.preventDefault()
+          if (focusState.mode === 'branch_focused') {
+            dispatch({ type: 'NAVIGATE_NEXT' })
+          }
+          break
+
+        case 'ArrowUp':
+          e.preventDefault()
+          if (focusState.mode === 'branch_focused') {
+            dispatch({ type: 'NAVIGATE_SIBLING_BRANCH', direction: 'up' })
+          }
+          break
+
+        case 'ArrowDown':
+          e.preventDefault()
+          if (focusState.mode === 'branch_focused') {
+            dispatch({ type: 'NAVIGATE_SIBLING_BRANCH', direction: 'down' })
+          }
+          break
+
+        case 'Escape':
+          if (focusState.mode === 'branch_focused') {
+            dispatch({ type: 'CLEAR_FOCUS' })
+          } else if (growth.mode === 'paused_exploring') {
+            dispatch({ type: 'CLEAR_FOCUS' })
+          }
+          break
+
+        case ' ':
+          e.preventDefault()
+          if (growth.mode === 'playing') {
+            dispatch({ type: 'PAUSE_GROWTH' })
+          } else if (
+            growth.mode === 'paused_manual' ||
+            growth.mode === 'paused_at_decision' ||
+            growth.mode === 'paused_exploring'
+          ) {
+            dispatch({ type: 'RESUME_GROWTH' })
+          }
+          break
+
         case 'Enter':
-          console.log('[keyboard] Enter — select / confirm')
+          // No-op for now — detail panel opens via click; Enter re-selects current node
           break
+
         case '[':
-          console.log('[keyboard] [ — step backward')
+          e.preventDefault()
+          dispatch({ type: 'STEP_BACKWARD' })
           break
+
         case ']':
-          console.log('[keyboard] ] — step forward')
+          e.preventDefault()
+          dispatch({ type: 'STEP_FORWARD' })
           break
       }
     }
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [focusState, growth, dispatch])

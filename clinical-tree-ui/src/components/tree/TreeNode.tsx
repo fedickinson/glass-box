@@ -12,6 +12,7 @@ interface Props {
   pruneSource?: 'shield' | 'doctor'
   isVisible: boolean
   isGrowthPaused: boolean
+  isHovered?: boolean
   annotations: DoctorAnnotation[]
   viewMode: ViewMode
   onClick: () => void
@@ -88,6 +89,7 @@ export default function TreeNode({
   pruneSource,
   isVisible,
   isGrowthPaused,
+  isHovered,
   annotations,
   viewMode,
   onClick,
@@ -103,6 +105,7 @@ export default function TreeNode({
   const opacity = focusRole === 'dimmed' ? 0.22 : 1
   const scale = focusRole === 'selected' ? 1.03 : focusRole === 'dimmed' ? 0.97 : 1
   const selectedRing = focusRole === 'selected'
+  const hoverRing = isHovered && focusRole !== 'selected'
 
   // Annotation badge colors
   const annotationColors: Record<string, string> = {
@@ -152,6 +155,22 @@ export default function TreeNode({
           stroke={colors.accent}
           strokeWidth={2}
           strokeOpacity={0.7}
+        />
+      )}
+
+      {/* Hover ring (synthesis panel hover) */}
+      {hoverRing && (
+        <rect
+          x={-3}
+          y={-3}
+          width={w + 6}
+          height={h + 6}
+          rx={14}
+          fill="none"
+          stroke={colors.accent}
+          strokeWidth={1.5}
+          strokeOpacity={0.45}
+          strokeDasharray="4,3"
         />
       )}
 
