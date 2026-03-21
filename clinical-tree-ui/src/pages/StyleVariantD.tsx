@@ -169,29 +169,24 @@ export default function StyleVariantD() {
         <div style={{ flex: 1, overflow: 'auto', padding: '28px 20px' }}>
           <div style={{ position: 'relative', width: CANVAS_W, height: CANVAS_H }}>
             <svg style={{ position: 'absolute', inset: 0, width: CANVAS_W, height: CANVAS_H, pointerEvents: 'none' }}>
-              {/* Branch connections — layered glow, secondary weight */}
-              {CONNECTIONS.filter(c => !c.isPrimary).map(c => (
-                <g key={`${c.from}-${c.to}`}>
-                  {/* Outer glow */}
-                  <path d={bezierPath(c.from, c.to)} fill="none"
-                    stroke="rgba(255,255,255,0.08)"
-                    strokeWidth={8}
-                    strokeDasharray="5,4"
-                  />
-                  {/* Mid glow */}
-                  <path d={bezierPath(c.from, c.to)} fill="none"
-                    stroke="rgba(255,255,255,0.18)"
-                    strokeWidth={3}
-                    strokeDasharray="5,4"
-                  />
-                  {/* Crisp line */}
-                  <path d={bezierPath(c.from, c.to)} fill="none"
-                    stroke="rgba(255,255,255,0.55)"
-                    strokeWidth={1.25}
-                    strokeDasharray="5,4"
-                  />
-                </g>
-              ))}
+              {/* Branch connections — fork lines glow amber from the decision node */}
+              {CONNECTIONS.filter(c => !c.isPrimary).map(c => {
+                const isFork = c.from === 'n005'
+                const outerColor = isFork ? 'rgba(240,168,0,0.12)' : 'rgba(255,255,255,0.08)'
+                const midColor   = isFork ? 'rgba(240,168,0,0.28)' : 'rgba(255,255,255,0.18)'
+                const crispColor = isFork ? 'rgba(240,168,0,0.75)' : 'rgba(255,255,255,0.55)'
+                const crispWidth = isFork ? 1.75 : 1.25
+                return (
+                  <g key={`${c.from}-${c.to}`}>
+                    <path d={bezierPath(c.from, c.to)} fill="none"
+                      stroke={outerColor} strokeWidth={8} strokeDasharray="5,4" />
+                    <path d={bezierPath(c.from, c.to)} fill="none"
+                      stroke={midColor} strokeWidth={3} strokeDasharray="5,4" />
+                    <path d={bezierPath(c.from, c.to)} fill="none"
+                      stroke={crispColor} strokeWidth={crispWidth} strokeDasharray="5,4" />
+                  </g>
+                )
+              })}
               {/* Primary connections — wide glow layer + bright crisp line on top */}
               {CONNECTIONS.filter(c => c.isPrimary).map(c => (
                 <g key={`${c.from}-${c.to}`}>

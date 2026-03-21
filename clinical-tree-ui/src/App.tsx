@@ -5,8 +5,10 @@ import StyleVariantB from './pages/StyleVariantB'
 import StyleVariantC from './pages/StyleVariantC'
 import StyleVariantD from './pages/StyleVariantD'
 import StyleVariantE from './pages/StyleVariantE'
+import StyleVariantF from './pages/StyleVariantF'
+import StyleVariantG from './pages/StyleVariantG'
 
-type Variant = 'a' | 'b' | 'c' | 'd' | 'e'
+type Variant = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g'
 
 function getVariantFromHash(): Variant {
   const hash = window.location.hash
@@ -14,6 +16,8 @@ function getVariantFromHash(): Variant {
   if (hash === '#/style/c') return 'c'
   if (hash === '#/style/d') return 'd'
   if (hash === '#/style/e') return 'e'
+  if (hash === '#/style/f') return 'f'
+  if (hash === '#/style/g') return 'g'
   return 'a'
 }
 
@@ -38,7 +42,7 @@ export default function App() {
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary mr-6 py-3">
           Stage 0 — Style Exploration
         </span>
-        {(['a', 'b', 'c', 'd', 'e'] as Variant[]).map((v) => (
+        {(['a', 'b', 'c', 'd', 'e', 'f', 'g'] as Variant[]).map((v) => (
           <button
             key={v}
             onClick={() => navigate(v)}
@@ -54,6 +58,8 @@ export default function App() {
             {v === 'c' && 'C — High-Contrast Editorial'}
             {v === 'd' && 'D — Apple Glass Dark'}
             {v === 'e' && 'E — Apple Glass Light'}
+            {v === 'f' && 'F — Glass Opaque'}
+            {v === 'g' && 'G — Glass Translucent'}
           </button>
         ))}
       </nav>
@@ -65,6 +71,8 @@ export default function App() {
         {variant === 'c' && <StyleVariantC />}
         {variant === 'd' && <StyleVariantD />}
         {variant === 'e' && <StyleVariantE />}
+        {variant === 'f' && <StyleVariantF />}
+        {variant === 'g' && <StyleVariantG />}
       </div>
     </div>
   )
