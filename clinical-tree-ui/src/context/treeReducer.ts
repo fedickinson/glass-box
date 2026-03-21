@@ -1,6 +1,16 @@
 /** treeReducer — handles all TreeAction types for the clinical reasoning tree UI state */
-import { TreeUIState, TreeAction, PositionedNode } from '../types/tree'
+import { TreeUIState, TreeAction, PositionedNode, AuditEntry } from '../types/tree'
 import { buildBranchPath } from '../data/transformer'
+
+function makeAuditId() {
+  return `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+}
+
+function audit(
+  overrides: Omit<AuditEntry, 'id' | 'timestamp'>
+): AuditEntry {
+  return { id: makeAuditId(), timestamp: Date.now(), ...overrides }
+}
 
 export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState {
   switch (action.type) {
@@ -75,7 +85,6 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       const selectedNode = nodeMap.get(selectedNodeId)
       if (!selectedNode) return state
 
-      // Walk up from selected node to find the nearest decision point ancestor
       let decisionPoint: PositionedNode | undefined
       let curr: PositionedNode | undefined = selectedNode
       while (curr) {
@@ -87,13 +96,11 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
         }
         curr = parent
       }
-      // Also allow jumping from the decision point itself
       if (!decisionPoint && selectedNode.is_decision_point) {
         decisionPoint = selectedNode
       }
       if (!decisionPoint) return state
 
-      // All branches that fork from this decision point
       const branchesFromDecision = [
         ...new Set(
           state.tree.nodes
@@ -138,11 +145,21 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       next.add(action.branchId)
       const nextMap = new Map(state.pruneSourceMap)
       nextMap.set(action.branchId, action.source)
+      const entry = audit({
+        type: action.source === 'shield' ? 'shield' : 'doctor',
+        summary: action.source === 'doctor'
+          ? `Dr. pruned branch: ${action.branchId}`
+          : `Shield terminated: ${action.branchId}`,
+        detail: null,
+        nodeId: null,
+        branchId: action.branchId,
+      })
       return {
         ...state,
         prunedBranchIds: next,
         pruneSourceMap: nextMap,
         focusState: { mode: 'idle' },
+        auditLog: [...state.auditLog, entry],
       }
     }
 
@@ -151,7 +168,19 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       next.delete(action.branchId)
       const nextMap = new Map(state.pruneSourceMap)
       nextMap.delete(action.branchId)
-      return { ...state, prunedBranchIds: next, pruneSourceMap: nextMap }
+      const entry = audit({
+        type: 'doctor',
+        summary: `Dr. restored branch: ${action.branchId}`,
+        detail: null,
+        nodeId: null,
+        branchId: action.branchId,
+      })
+      return {
+        ...state,
+        prunedBranchIds: next,
+        pruneSourceMap: nextMap,
+        auditLog: [...state.auditLog, entry],
+      }
     }
 
     // ── Doctor annotations ─────────────────────────────────────────
@@ -164,7 +193,22 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
         content: action.content,
         createdAt: Date.now(),
       }
-      return { ...state, annotations: [...state.annotations, annotation] }
+      const node = state.tree.nodes.find(n => n.id === action.nodeId)
+      const verbMap: Record<string, string> = {
+        flag: 'flagged', context: 'annotated', challenge: 'challenged', pin: 'pinned',
+      }
+      const entry = audit({
+        type: 'doctor',
+        summary: `Dr. ${verbMap[action.annotationType] ?? 'annotated'}: ${node?.headline ?? action.nodeId}`,
+        detail: action.content,
+        nodeId: action.nodeId,
+        branchId: node?.branch_id ?? null,
+      })
+      return {
+        ...state,
+        annotations: [...state.annotations, annotation],
+        auditLog: [...state.auditLog, entry],
+      }
     }
 
     case 'REMOVE_ANNOTATION': {
@@ -175,7 +219,18 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     }
 
     case 'PIN_BRANCH': {
-      return { ...state, pinnedBranchId: action.branchId }
+      const entry = audit({
+        type: 'doctor',
+        summary: `Dr. endorsed branch: ${action.branchId}`,
+        detail: null,
+        nodeId: null,
+        branchId: action.branchId,
+      })
+      return {
+        ...state,
+        pinnedBranchId: action.branchId,
+        auditLog: [...state.auditLog, entry],
+      }
     }
 
     case 'UNPIN_BRANCH': {
@@ -249,7 +304,18 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     }
 
     case 'SKIP_TO_END': {
-      return { ...state, growth: { mode: 'idle' } }
+      const entry = audit({
+        type: 'system',
+        summary: `Tree fully loaded — ${state.tree.nodes.length} nodes`,
+        detail: null,
+        nodeId: null,
+        branchId: null,
+      })
+      return {
+        ...state,
+        growth: { mode: 'idle' },
+        auditLog: [...state.auditLog, entry],
+      }
     }
 
     case 'GROWTH_TICK': {
@@ -257,13 +323,31 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       const maxCursor = state.tree.nodes.length - 1
       const nextCursor = state.growth.cursor + 1
       if (nextCursor > maxCursor) {
-        return { ...state, growth: { mode: 'idle' } }
+        const entry = audit({
+          type: 'system',
+          summary: `System explored ${state.tree.branchIds.length} branches`,
+          detail: null,
+          nodeId: null,
+          branchId: null,
+        })
+        return {
+          ...state,
+          growth: { mode: 'idle' },
+          auditLog: [...state.auditLog, entry],
+        }
       }
       const orderedNodes = [...state.tree.nodes].sort(
         (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
       )
       const nextNode = orderedNodes[nextCursor]
       if (nextNode?.is_decision_point) {
+        const entry = audit({
+          type: 'system',
+          summary: `Decision point: ${nextNode.headline}`,
+          detail: null,
+          nodeId: nextNode.id,
+          branchId: nextNode.branch_id,
+        })
         return {
           ...state,
           growth: {
@@ -271,6 +355,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
             cursor: nextCursor,
             decisionNodeId: nextNode.id,
           },
+          auditLog: [...state.auditLog, entry],
         }
       }
       return { ...state, growth: { ...state.growth, cursor: nextCursor } }
@@ -285,6 +370,13 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
           cursor: state.growth.cursor,
           decisionNodeId: action.decisionNodeId,
         },
+      }
+    }
+
+    case 'APPEND_AUDIT': {
+      return {
+        ...state,
+        auditLog: [...state.auditLog, audit(action.entry)],
       }
     }
 

@@ -1,6 +1,6 @@
 /** SynthesisPanel — interactive review interface: recommendation, branch cards, rejected paths */
 import React from 'react'
-import { SynthesisData, FocusState, DoctorAnnotation, PruneSource } from '../../types/tree'
+import { SynthesisData, FocusState, DoctorAnnotation, DoctorAnnotationType } from '../../types/tree'
 import RecommendationHeader from './RecommendationHeader'
 import BranchCard from './BranchCard'
 
@@ -17,6 +17,8 @@ interface Props {
   onRestoreBranch: (branchId: string) => void
   onPinBranch: (branchId: string) => void
   onUnpinBranch: () => void
+  onAnnotate: (nodeId: string, type: DoctorAnnotationType, content: string) => void
+  onRemoveAnnotation: (annotationId: string) => void
 }
 
 function Divider() {
@@ -45,6 +47,8 @@ export default function SynthesisPanel({
   onRestoreBranch,
   onPinBranch,
   onUnpinBranch,
+  onAnnotate,
+  onRemoveAnnotation,
 }: Props) {
   const { branches, rejectedPaths } = synthesis
 
@@ -105,6 +109,8 @@ export default function SynthesisPanel({
               onPin={() => onPinBranch(branch.branchId)}
               onUnpin={onUnpinBranch}
               onPrune={() => onPruneBranch(branch.branchId)}
+              onAnnotate={onAnnotate}
+              onRemoveAnnotation={onRemoveAnnotation}
             />
           ))}
         </div>

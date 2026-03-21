@@ -1,6 +1,6 @@
 /** BranchCard — clickable card for one branch in the synthesis panel */
 import React, { useRef, useEffect } from 'react'
-import { BranchSummary, DoctorAnnotation, FocusState } from '../../types/tree'
+import { BranchSummary, DoctorAnnotation, FocusState, DoctorAnnotationType } from '../../types/tree'
 import NodeSummaryLine from './NodeSummaryLine'
 
 const BRANCH_LABEL_COLORS: Record<string, string> = {
@@ -34,6 +34,8 @@ interface Props {
   onPin: () => void
   onUnpin: () => void
   onPrune: () => void
+  onAnnotate: (nodeId: string, type: DoctorAnnotationType, content: string) => void
+  onRemoveAnnotation: (annotationId: string) => void
 }
 
 export default function BranchCard({
@@ -48,6 +50,8 @@ export default function BranchCard({
   onPin,
   onUnpin,
   onPrune,
+  onAnnotate,
+  onRemoveAnnotation,
 }: Props) {
   const isFocused =
     focusState.mode === 'branch_focused' && focusState.branchId === branch.branchId
@@ -268,6 +272,8 @@ export default function BranchCard({
               onClick={() => onNodeClick(ns.nodeId)}
               onMouseEnter={() => onNodeHoverEnter(ns.nodeId)}
               onMouseLeave={onNodeHoverLeave}
+              onAnnotate={(type, content) => onAnnotate(ns.nodeId, type, content)}
+              onRemoveAnnotation={onRemoveAnnotation}
             />
           ))}
         </div>

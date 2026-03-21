@@ -13,6 +13,7 @@ import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
 import NodeDetail from './components/tree/NodeDetail'
 import SynthesisPanel from './components/synthesis/SynthesisPanel'
+import AuditTrail from './components/AuditTrail'
 import BaselineView from './components/BaselineView'
 
 // Transform mock data once at module level
@@ -28,6 +29,7 @@ function AppLayout() {
   const { state, dispatch } = useTreeContext()
   const viewportRef = useRef<TreeViewportHandle>(null)
   const [showBaseline, setShowBaseline] = useState(false)
+  const [showAuditTrail, setShowAuditTrail] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
   // Computed synthesis — re-runs on every prune/restore/annotate/pin
@@ -136,6 +138,25 @@ function AppLayout() {
 
         {/* Right controls */}
         <div className="ml-auto flex items-center gap-2">
+
+          {/* Audit trail toggle */}
+          <button
+            onClick={() => setShowAuditTrail(s => !s)}
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              padding: '5px 12px',
+              borderRadius: 20,
+              background: showAuditTrail ? 'rgba(45,138,86,0.1)' : 'rgba(0,0,0,0.05)',
+              border: showAuditTrail ? '1px solid rgba(45,138,86,0.3)' : '1px solid rgba(0,0,0,0.1)',
+              color: showAuditTrail ? '#2D8A56' : 'rgba(0,0,0,0.5)',
+              cursor: 'pointer',
+              transition: 'all 150ms ease-out',
+            }}
+          >
+            Audit trail {state.auditLog.length > 0 && `(${state.auditLog.length})`}
+          </button>
 
           {/* Baseline toggle */}
           <button
@@ -251,8 +272,76 @@ function AppLayout() {
           onRestoreBranch={branchId => dispatch({ type: 'RESTORE_BRANCH', branchId })}
           onPinBranch={branchId => dispatch({ type: 'PIN_BRANCH', branchId })}
           onUnpinBranch={() => dispatch({ type: 'UNPIN_BRANCH' })}
+          onAnnotate={(nodeId, type, content) => dispatch({ type: 'ADD_ANNOTATION', nodeId, annotationType: type, content })}
+          onRemoveAnnotation={annotationId => dispatch({ type: 'REMOVE_ANNOTATION', annotationId })}
         />
       </div>
+
+      {/* ── Audit trail — collapsible bottom panel ── */}
+      {showAuditTrail && (
+        <div
+          style={{
+            height: 180,
+            borderTop: '1px solid rgba(0,0,0,0.09)',
+            background: 'rgba(252,252,253,0.97)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              padding: '8px 20px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              borderBottom: '1px solid rgba(0,0,0,0.05)',
+              paddingBottom: 7,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 8.5,
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'rgba(0,0,0,0.35)',
+              }}
+            >
+              Activity log
+            </span>
+            <button
+              onClick={() => setShowAuditTrail(false)}
+              style={{
+                marginLeft: 'auto',
+                fontSize: 10,
+                color: 'rgba(0,0,0,0.3)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '2px 6px',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <AuditTrail
+              auditLog={state.auditLog}
+              tree={state.tree}
+              onEntryClick={entry => {
+                if (entry.nodeId) {
+                  dispatch({ type: 'SELECT_NODE', nodeId: entry.nodeId })
+                } else if (entry.branchId) {
+                  dispatch({ type: 'FOCUS_BRANCH', branchId: entry.branchId })
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

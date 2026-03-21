@@ -242,6 +242,20 @@ export type GrowthPlaybackState =
 /** Growth speed presets in ms per node */
 export type GrowthSpeed = 100 | 200 | 400
 
+// ============================================================
+// Audit trail — log of every system and doctor action
+// ============================================================
+
+export interface AuditEntry {
+  id: string
+  timestamp: number
+  type: 'system' | 'shield' | 'doctor'
+  summary: string
+  detail: string | null
+  nodeId: string | null
+  branchId: string | null
+}
+
 /**
  * Full tree UI state — passed through TreeContext.
  */
@@ -254,6 +268,7 @@ export interface TreeUIState {
   growth: GrowthPlaybackState
   annotations: DoctorAnnotation[]       // all doctor annotations across the tree
   pinnedBranchId: string | null          // doctor-endorsed branch (at most one)
+  auditLog: AuditEntry[]
 }
 
 /**
@@ -288,3 +303,5 @@ export type TreeAction =
   // Internal: called by the growth timer, not by user actions directly
   | { type: 'GROWTH_TICK' }
   | { type: 'GROWTH_AUTO_PAUSE'; decisionNodeId: string }
+  // Audit
+  | { type: 'APPEND_AUDIT'; entry: Omit<AuditEntry, 'id' | 'timestamp'> }

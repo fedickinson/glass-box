@@ -1,6 +1,7 @@
-/** NodeSummaryLine — one-line summary of a node within a BranchCard. Clickable, hoverable. */
-import React from 'react'
-import { NodeSummary, DoctorAnnotation } from '../../types/tree'
+/** NodeSummaryLine — one-line node summary in a BranchCard. Hover reveals flag/context/challenge. */
+import React, { useState } from 'react'
+import { NodeSummary, DoctorAnnotation, DoctorAnnotationType } from '../../types/tree'
+import AnnotationInput from './AnnotationInput'
 
 const TYPE_DOT_COLORS: Record<string, string> = {
   thought: '#3B7DD8',
@@ -20,6 +21,8 @@ interface Props {
   onClick: () => void
   onMouseEnter: () => void
   onMouseLeave: () => void
+  onAnnotate: (type: DoctorAnnotationType, content: string) => void
+  onRemoveAnnotation: (annotationId: string) => void
 }
 
 export default function NodeSummaryLine({
@@ -29,109 +32,185 @@ export default function NodeSummaryLine({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onAnnotate,
+  onRemoveAnnotation,
 }: Props) {
+  const [isHovered, setIsHovered] = useState(false)
+  const [openInput, setOpenInput] = useState<DoctorAnnotationType | null>(null)
+
   const dotColor = TYPE_DOT_COLORS[nodeSummary.type] ?? '#888'
-  const isDiagnosis = !!nodeSummary.shieldFlag === false && nodeSummary.headline.toLowerCase().includes('dx:')
+
+  function handleAnnotate(type: DoctorAnnotationType, content: string) {
+    onAnnotate(type, content)
+    setOpenInput(null)
+  }
 
   return (
     <div
-      onClick={onClick}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-        padding: '5px 8px',
-        borderRadius: 8,
-        cursor: 'pointer',
-        background: isSelected ? `${dotColor}10` : 'transparent',
-        border: isSelected ? `1px solid ${dotColor}28` : '1px solid transparent',
-        transition: 'background 120ms ease-out, border-color 120ms ease-out',
-        marginLeft: -4,
-      }}
+      onMouseEnter={() => { setIsHovered(true); onMouseEnter() }}
+      onMouseLeave={() => { setIsHovered(false); onMouseLeave() }}
     >
-      {/* Type dot */}
+      {/* Main row */}
       <div
+        onClick={onClick}
         style={{
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: dotColor,
-          flexShrink: 0,
-          marginTop: 5,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
+          padding: '5px 8px',
+          borderRadius: 8,
+          cursor: 'pointer',
+          background: isSelected ? `${dotColor}10` : isHovered ? 'rgba(0,0,0,0.03)' : 'transparent',
+          border: isSelected ? `1px solid ${dotColor}28` : '1px solid transparent',
+          transition: 'background 120ms ease-out',
+          marginLeft: -4,
         }}
-      />
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      >
+        {/* Type dot */}
         <div
           style={{
-            fontSize: 11.5,
-            color: isSelected ? '#111' : 'rgba(0,0,0,0.7)',
-            lineHeight: 1.35,
-            fontWeight: nodeSummary.isKeyStep ? 500 : 400,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: dotColor,
+            flexShrink: 0,
+            marginTop: 5,
           }}
-          title={nodeSummary.headline}
-        >
-          {nodeSummary.headline}
+        />
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 11.5,
+              color: isSelected ? '#111' : 'rgba(0,0,0,0.7)',
+              lineHeight: 1.35,
+              fontWeight: nodeSummary.isKeyStep ? 500 : 400,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={nodeSummary.headline}
+          >
+            {nodeSummary.headline}
+          </div>
+
+          {nodeSummary.source && (
+            <div
+              style={{ fontSize: 9.5, color: 'rgba(0,0,0,0.38)', marginTop: 1, fontStyle: 'italic' }}
+            >
+              {nodeSummary.source}
+            </div>
+          )}
         </div>
 
-        {/* Source */}
-        {nodeSummary.source && (
-          <div
-            style={{ fontSize: 9.5, color: 'rgba(0,0,0,0.38)', marginTop: 1, fontStyle: 'italic' }}
+        {/* Shield badge */}
+        {nodeSummary.shieldFlag && (
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              padding: '1px 5px',
+              borderRadius: 4,
+              background: 'rgba(185,50,38,0.08)',
+              color: '#a02a20',
+              border: '1px solid rgba(185,50,38,0.2)',
+              letterSpacing: '0.06em',
+              flexShrink: 0,
+              marginTop: 2,
+            }}
           >
-            {nodeSummary.source}
-          </div>
+            SHIELD
+          </span>
         )}
 
-        {/* Annotations inline */}
-        {annotations.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
-            {annotations.map(ann => (
-              <span
-                key={ann.id}
-                style={{
-                  fontSize: 9,
-                  padding: '1px 6px',
-                  borderRadius: 4,
-                  background: `${ANNOTATION_COLORS[ann.type] ?? '#888'}14`,
-                  color: ANNOTATION_COLORS[ann.type] ?? '#888',
-                  border: `1px solid ${ANNOTATION_COLORS[ann.type] ?? '#888'}30`,
-                  fontWeight: 600,
-                  letterSpacing: '0.03em',
-                }}
-              >
-                {ann.type === 'flag' ? '⚑' : ann.type === 'context' ? '📎' : '⚡'}{' '}
-                {ann.content.slice(0, 40)}{ann.content.length > 40 ? '…' : ''}
-              </span>
-            ))}
+        {/* Hover action buttons */}
+        {isHovered && !openInput && (
+          <div
+            style={{ display: 'flex', gap: 3, flexShrink: 0 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {(['flag', 'context', 'challenge'] as DoctorAnnotationType[]).map(t => {
+              const icons: Record<string, string> = { flag: '⚑', context: '📎', challenge: '⚡' }
+              const colors: Record<string, string> = { flag: '#C53D2F', context: '#3B7DD8', challenge: '#D4950A' }
+              return (
+                <button
+                  key={t}
+                  onClick={() => setOpenInput(t)}
+                  title={t}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 5,
+                    border: `1px solid ${colors[t]}30`,
+                    background: `${colors[t]}10`,
+                    color: colors[t],
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >
+                  {icons[t]}
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
 
-      {/* Shield flag */}
-      {nodeSummary.shieldFlag && (
-        <span
-          style={{
-            fontSize: 8,
-            fontWeight: 700,
-            padding: '1px 5px',
-            borderRadius: 4,
-            background: 'rgba(185,50,38,0.08)',
-            color: '#a02a20',
-            border: '1px solid rgba(185,50,38,0.2)',
-            letterSpacing: '0.06em',
-            flexShrink: 0,
-            marginTop: 2,
-          }}
-        >
-          SHIELD
-        </span>
+      {/* Inline annotations */}
+      {annotations.length > 0 && (
+        <div style={{ marginLeft: 18, marginBottom: 2 }}>
+          {annotations.map(ann => (
+            <div
+              key={ann.id}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 5,
+                padding: '3px 6px',
+                borderRadius: 5,
+                background: `${ANNOTATION_COLORS[ann.type] ?? '#888'}08`,
+                borderLeft: `2px solid ${ANNOTATION_COLORS[ann.type] ?? '#888'}50`,
+                marginBottom: 2,
+              }}
+            >
+              <span style={{ fontSize: 9, color: ANNOTATION_COLORS[ann.type] ?? '#888', flexShrink: 0, marginTop: 1 }}>
+                {ann.type === 'flag' ? '⚑' : ann.type === 'context' ? '📎' : '⚡'}
+              </span>
+              <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.65)', flex: 1, lineHeight: 1.35 }}>
+                {ann.content}
+              </span>
+              <button
+                onClick={() => onRemoveAnnotation(ann.id)}
+                style={{
+                  fontSize: 10,
+                  color: 'rgba(0,0,0,0.3)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Annotation input — opens inline below */}
+      {openInput && (
+        <AnnotationInput
+          annotationType={openInput}
+          onSubmit={content => handleAnnotate(openInput, content)}
+          onCancel={() => setOpenInput(null)}
+        />
       )}
     </div>
   )
