@@ -1,0 +1,19 @@
+[project]
+name = "rosy-rat-boys"
+version = "0.1.0"
+description = "Multibeam search with entropy branching"
+requires-python = ">=3.10"
+dependencies = [
+    "ipykernel",
+    "ipywidgets",
+    "matplotlib",
+    "pytest",
+    "torch",
+    "torchvision",
+    "transformers",
+    "accelerate",
+    "flash-linear-attention",
+    "causal-conv1d",
+    "datasets",
+    "gpustat",
+]

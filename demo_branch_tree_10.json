@@ -1,0 +1,206 @@
+[
+  {
+    "id": "root",
+    "parent_id": null,
+    "call-type": "thought",
+    "content": "In pediatric patients, which of the following complications has been documented to occur in association with lateral condyle fracture nonunion?"
+  },
+  {
+    "id": "t0",
+    "parent_id": "root",
+    "call-type": "thought",
+    "content": "Recall the complication should be a delayed consequence, not an acute injury finding."
+  },
+  {
+    "id": "tool0",
+    "parent_id": "t0",
+    "call-type": "tool",
+    "content": "Search orthopedic references for documented complications of lateral condyle fracture nonunion."
+  },
+  {
+    "id": "ref0",
+    "parent_id": "tool0",
+    "call-type": "citation",
+    "content": "Reference summary: lateral condyle nonunion is associated with progressive cubitus valgus and possible tardy ulnar nerve palsy."
+  },
+  {
+    "id": "t1",
+    "parent_id": "ref0",
+    "call-type": "thought",
+    "content": "Stay focused on long-term deformity, instability, and nerve effects."
+  },
+  {
+    "id": "t2",
+    "parent_id": "t1",
+    "call-type": "thought",
+    "content": "Eliminate obvious distractors before the first real branch."
+  },
+  {
+    "id": 0,
+    "parent_id": "t2",
+    "call-type": "thought",
+    "content": "Branch: compare deformity, nerve-symptom, and instability explanations."
+  },
+  {
+    "id": "t3",
+    "parent_id": 0,
+    "call-type": "thought",
+    "content": "Deformity path: favor progressive structural change over isolated pain."
+  },
+  {
+    "id": "t4",
+    "parent_id": "t3",
+    "call-type": "thought",
+    "content": "Nonunion can gradually alter carrying angle, so keep valgus in focus."
+  },
+  {
+    "id": "tool1",
+    "parent_id": "t4",
+    "call-type": "tool",
+    "content": "Pull a quick reference on classic deformity patterns after pediatric lateral condyle nonunion."
+  },
+  {
+    "id": "ref1",
+    "parent_id": "tool1",
+    "call-type": "citation",
+    "content": "Reference summary: progressive cubitus valgus is the classic deformity, while pain can occur but is less definitive."
+  },
+  {
+    "id": 1,
+    "parent_id": "ref1",
+    "call-type": "thought",
+    "content": "Branch: decide between progressive cubitus valgus and chronic lateral pain."
+  },
+  {
+    "id": 4,
+    "parent_id": 1,
+    "call-type": "citation",
+    "content": "progressive cubitus valgus."
+  },
+  {
+    "id": 5,
+    "parent_id": 1,
+    "call-type": "citation",
+    "content": "chronic lateral pain."
+  },
+  {
+    "id": "t5",
+    "parent_id": 0,
+    "call-type": "thought",
+    "content": "Nerve-symptom path: check whether delayed neuropathy is actually the main complication."
+  },
+  {
+    "id": "t6",
+    "parent_id": "t5",
+    "call-type": "thought",
+    "content": "This path stays plausible, but it feels weaker than the deformity path."
+  },
+  {
+    "id": 2,
+    "parent_id": "t6",
+    "call-type": "citation",
+    "content": "delayed nerve symptoms."
+  },
+  {
+    "id": "t7",
+    "parent_id": 0,
+    "call-type": "thought",
+    "content": "Instability path: only continue if deformity evidence becomes unconvincing."
+  },
+  {
+    "id": "t8",
+    "parent_id": "t7",
+    "call-type": "thought",
+    "content": "Need stronger evidence before splitting this branch again."
+  },
+  {
+    "id": 3,
+    "parent_id": "t8",
+    "call-type": "thought",
+    "content": "Branch: separate posterolateral instability from nerve-complication reasoning."
+  },
+  {
+    "id": "t9",
+    "parent_id": 3,
+    "call-type": "thought",
+    "content": "Instability subpath: posterolateral instability fits the mechanics better."
+  },
+  {
+    "id": 6,
+    "parent_id": "t9",
+    "call-type": "citation",
+    "content": "posterolateral instability."
+  },
+  {
+    "id": "t10",
+    "parent_id": 3,
+    "call-type": "thought",
+    "content": "Neural-complication subpath: only now consider specific nerve injuries."
+  },
+  {
+    "id": "tool2",
+    "parent_id": "t10",
+    "call-type": "tool",
+    "content": "Check whether the cited neuropathy is classically ulnar rather than radial."
+  },
+  {
+    "id": "ref2",
+    "parent_id": "tool2",
+    "call-type": "citation",
+    "content": "Reference summary: tardy ulnar nerve palsy is the classic delayed neuropathy linked to cubitus valgus."
+  },
+  {
+    "id": 7,
+    "parent_id": "ref2",
+    "call-type": "thought",
+    "content": "Branch: compare ulnar and radial nerve complications."
+  },
+  {
+    "id": "t11",
+    "parent_id": 7,
+    "call-type": "thought",
+    "content": "Ulnar branch: ulnar symptoms remain the more plausible late complication."
+  },
+  {
+    "id": 8,
+    "parent_id": "t11",
+    "call-type": "citation",
+    "content": "ulnar nerve palsy."
+  },
+  {
+    "id": "t12",
+    "parent_id": 7,
+    "call-type": "thought",
+    "content": "Radial branch: radial involvement still feels weak this late in the trace."
+  },
+  {
+    "id": 9,
+    "parent_id": "t12",
+    "call-type": "citation",
+    "content": "radial nerve palsy."
+  },
+  {
+    "id": "t13",
+    "parent_id": 7,
+    "call-type": "thought",
+    "content": "Alternative nerve branch: valgus-related stretch still points back to the ulnar distribution."
+  },
+  {
+    "id": 10,
+    "parent_id": "t13",
+    "call-type": "citation",
+    "content": "ulnar nerve palsy."
+  },
+  {
+    "id": "t14",
+    "parent_id": 7,
+    "call-type": "thought",
+    "content": "Cross-check branch: the classic delayed neuropathy in this setting remains ulnar, not radial."
+  },
+  {
+    "id": 11,
+    "parent_id": "t14",
+    "call-type": "citation",
+    "content": "ulnar nerve palsy."
+  }
+]

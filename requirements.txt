@@ -1,0 +1,12 @@
+ipykernel
+ipywidgets
+matplotlib
+pytest
+torch
+torchvision
+transformers
+accelerate
+flash-linear-attention
+causal-conv1d
+datasets
+gpustat
