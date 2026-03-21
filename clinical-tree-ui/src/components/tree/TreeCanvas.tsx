@@ -92,21 +92,34 @@ export default function TreeCanvas({
     >
       {/* ── Shared defs: shadow filter + per-node clip paths ── */}
       <defs>
-        {/* Drop shadow for all node cards */}
-        <filter id="node-drop-shadow" x="-15%" y="-15%" width="130%" height="130%">
-          <feDropShadow
-            dx="0"
-            dy="2"
-            stdDeviation="5"
-            floodColor="rgba(0,0,0,0.09)"
-          />
-          <feDropShadow
-            dx="0"
-            dy="8"
-            stdDeviation="16"
-            floodColor="rgba(0,0,0,0.06)"
-          />
+        {/* Drop shadow for all node cards — multi-layer like Variant F */}
+        <filter id="node-drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="rgba(0,0,0,0.08)" />
+          <feDropShadow dx="0" dy="4"  stdDeviation="7"  floodColor="rgba(0,0,0,0.09)" />
+          <feDropShadow dx="0" dy="12" stdDeviation="22" floodColor="rgba(0,0,0,0.06)" />
         </filter>
+
+        {/* Apple Glass tinted gradient fills — Variant F spec (148° ≈ x1=1,y1=0 → x2=0,y2=1) */}
+        <linearGradient id="fill-thought" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(235,246,255)" stopOpacity="0.97" />
+          <stop offset="100%" stopColor="rgb(215,235,255)" stopOpacity="0.94" />
+        </linearGradient>
+        <linearGradient id="fill-tool" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(232,250,240)" stopOpacity="0.97" />
+          <stop offset="100%" stopColor="rgb(210,242,224)" stopOpacity="0.94" />
+        </linearGradient>
+        <linearGradient id="fill-citation" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(246,240,255)" stopOpacity="0.97" />
+          <stop offset="100%" stopColor="rgb(232,220,255)" stopOpacity="0.94" />
+        </linearGradient>
+        <linearGradient id="fill-decision" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(255,250,230)" stopOpacity="0.97" />
+          <stop offset="100%" stopColor="rgb(255,241,195)" stopOpacity="0.94" />
+        </linearGradient>
+        <linearGradient id="fill-flagged" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(255,240,238)" stopOpacity="0.97" />
+          <stop offset="100%" stopColor="rgb(254,225,220)" stopOpacity="0.94" />
+        </linearGradient>
 
         {/* Per-node clip paths for rounded left accent border.
             Coordinates are in SVG root space — the accent rect inside a

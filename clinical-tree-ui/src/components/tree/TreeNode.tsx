@@ -26,7 +26,7 @@ function getNodeColors(
 ) {
   if (isPruned) {
     return {
-      fill: 'var(--node-flagged-fill)',
+      fill: 'url(#fill-flagged)',
       accent: 'var(--node-flagged-border)',
       label: 'var(--node-flagged-label)',
       text: 'var(--node-flagged-text)',
@@ -35,7 +35,7 @@ function getNodeColors(
   }
   if (isDecision) {
     return {
-      fill: 'var(--node-decision-fill)',
+      fill: 'url(#fill-decision)',
       accent: 'var(--node-decision-border)',
       label: 'var(--node-decision-label)',
       text: 'var(--node-decision-text)',
@@ -45,7 +45,7 @@ function getNodeColors(
   switch (type) {
     case 'tool':
       return {
-        fill: 'var(--node-tool-fill)',
+        fill: 'url(#fill-tool)',
         accent: 'var(--node-tool-border)',
         label: 'var(--node-tool-label)',
         text: 'var(--node-tool-text)',
@@ -53,7 +53,7 @@ function getNodeColors(
       }
     case 'citation':
       return {
-        fill: 'var(--node-citation-fill)',
+        fill: 'url(#fill-citation)',
         accent: 'var(--node-citation-border)',
         label: 'var(--node-citation-label)',
         text: 'var(--node-citation-text)',
@@ -61,7 +61,7 @@ function getNodeColors(
       }
     default: // thought
       return {
-        fill: 'var(--node-thought-fill)',
+        fill: 'url(#fill-thought)',
         accent: 'var(--node-thought-border)',
         label: 'var(--node-thought-label)',
         text: 'var(--node-thought-text)',
@@ -239,12 +239,22 @@ export default function TreeNode({
           height={h}
           rx={12}
           fill={colors.fill}
-          stroke="rgba(255,255,255,0.85)"
+          stroke="rgba(0,0,0,0.06)"
           strokeWidth={1}
           filter="url(#node-drop-shadow)"
         />
 
-        {/* Left accent border — clipped to card shape */}
+        {/* Specular top-edge highlight (Apple Glass effect) */}
+        <rect
+          x={5}
+          y={0.5}
+          width={w - 7}
+          height={1}
+          fill="rgba(255,255,255,1)"
+          rx={1}
+        />
+
+        {/* Left accent border — 4px, clipped to card shape */}
         <rect
           x={0}
           y={0}
