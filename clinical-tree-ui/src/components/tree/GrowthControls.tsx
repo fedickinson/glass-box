@@ -1,10 +1,13 @@
 /** GrowthControls — play/pause/step/speed/skip bar shown during growth playback */
 import React from 'react'
 import { GrowthPlaybackState, GrowthSpeed } from '../../types/tree'
+import { GrowthCameraMode } from '../../hooks/useGrowthCamera'
 
 interface Props {
   growth: GrowthPlaybackState
   totalNodes: number
+  cameraMode: GrowthCameraMode
+  onCameraMode: (mode: GrowthCameraMode) => void
   onPlay: () => void
   onPause: () => void
   onStepForward: () => void
@@ -29,6 +32,8 @@ function getCurrentSpeed(growth: GrowthPlaybackState): GrowthSpeed {
 export default function GrowthControls({
   growth,
   totalNodes,
+  cameraMode,
+  onCameraMode,
   onPlay,
   onPause,
   onStepForward,
@@ -197,6 +202,40 @@ export default function GrowthControls({
             }}
           >
             {SPEED_LABELS[s]}
+          </button>
+        ))}
+      </div>
+
+      {/* Camera mode toggle */}
+      <div
+        style={{
+          display: 'flex',
+          borderRadius: 8,
+          overflow: 'hidden',
+          border: '1px solid rgba(0,0,0,0.1)',
+          flexShrink: 0,
+        }}
+      >
+        {(['follow', 'overview'] as GrowthCameraMode[]).map(mode => (
+          <button
+            key={mode}
+            onClick={() => onCameraMode(mode)}
+            title={mode === 'follow' ? 'Follow primary path' : 'Zoom out to show all branches'}
+            style={{
+              height: 24,
+              padding: '0 8px',
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              border: 'none',
+              borderRight: mode === 'follow' ? '1px solid rgba(0,0,0,0.1)' : 'none',
+              background: cameraMode === mode ? 'rgba(59,125,216,0.12)' : 'rgba(0,0,0,0.03)',
+              color: cameraMode === mode ? '#1A52A8' : 'rgba(0,0,0,0.4)',
+              transition: 'all 100ms ease-out',
+            }}
+          >
+            {mode === 'follow' ? '⊙ Follow' : '⊕ Overview'}
           </button>
         ))}
       </div>

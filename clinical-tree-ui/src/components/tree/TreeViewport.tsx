@@ -5,8 +5,10 @@ import { PositionedNode } from '../../types/tree'
 
 export interface TreeViewportHandle {
   fitToView: () => void
-  fitBranch: (branchNodeIds: string[], nodes: PositionedNode[]) => void
-  panToNode: (node: PositionedNode) => void
+  /** Fit a set of nodes into view. animMs defaults to 300ms. */
+  fitBranch: (branchNodeIds: string[], nodes: PositionedNode[], animMs?: number) => void
+  /** Pan to center a node. If targetScale is provided, zoom to that scale too. */
+  panToNode: (node: PositionedNode, targetScale?: number) => void
 }
 
 interface Props {
@@ -22,7 +24,7 @@ const TreeViewport = forwardRef<TreeViewportHandle, Props>(({ children }, ref) =
       transformRef.current?.resetTransform(300, 'easeOut')
     },
 
-    fitBranch(branchNodeIds, nodes) {
+    fitBranch(branchNodeIds, nodes, animMs = 300) {
       const api = transformRef.current
       const container = containerRef.current
       if (!api || !container) return
@@ -47,15 +49,15 @@ const TreeViewport = forwardRef<TreeViewportHandle, Props>(({ children }, ref) =
       const cy = (minY + maxY) / 2
       const newX = cw / 2 - cx * scale
       const newY = ch / 2 - cy * scale
-      api.setTransform(newX, newY, scale, 300, 'easeOut')
+      api.setTransform(newX, newY, scale, animMs, 'easeOut')
     },
 
-    panToNode(node) {
+    panToNode(node, targetScale) {
       const api = transformRef.current
       const container = containerRef.current
       if (!api || !container) return
 
-      const scale = api.instance.transformState.scale
+      const scale = targetScale ?? api.instance.transformState.scale
       const cw = container.clientWidth
       const ch = container.clientHeight
       const cx = node.x + node.width / 2

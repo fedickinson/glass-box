@@ -4,6 +4,7 @@ import { TreeProvider, useTreeContext } from './context/TreeContext'
 import { useTreeKeyboard } from './hooks/useTreeKeyboard'
 import { useGrowthTimer } from './hooks/useGrowthTimer'
 import { useViewportControl } from './hooks/useViewportControl'
+import { useGrowthCamera, GrowthCameraMode } from './hooks/useGrowthCamera'
 import { MOCK_PATIENT_CONTEXT, mockTreeNodes } from './data/mockTree'
 import { transformTree } from './data/transformer'
 import { computeSynthesis } from './data/computeSynthesis'
@@ -32,6 +33,7 @@ function AppLayout() {
   const [showBaseline, setShowBaseline] = useState(false)
   const [showAuditTrail, setShowAuditTrail] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const [cameraMode, setCameraMode] = useState<GrowthCameraMode>('follow')
 
   // Computed synthesis — re-runs on every prune/restore/annotate/pin
   const synthesis = useMemo(
@@ -49,6 +51,7 @@ function AppLayout() {
   useTreeKeyboard(state.focusState, state.growth, dispatch)
   useGrowthTimer(state.growth, dispatch)
   useViewportControl(state.focusState, state.tree, viewportRef)
+  useGrowthCamera(state.growth, state.tree, cameraMode, viewportRef)
 
   const isBranchFocused = state.focusState.mode === 'branch_focused'
   const focusBranch = state.focusState.mode === 'branch_focused' ? state.focusState : null
@@ -286,6 +289,8 @@ function AppLayout() {
                     <GrowthControls
                       growth={state.growth}
                       totalNodes={state.tree.nodes.length}
+                      cameraMode={cameraMode}
+                      onCameraMode={setCameraMode}
                       onPlay={() => dispatch({ type: 'RESUME_GROWTH' })}
                       onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
                       onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
