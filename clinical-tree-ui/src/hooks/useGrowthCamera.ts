@@ -19,7 +19,7 @@ import { useEffect, useRef } from 'react'
 import { GrowthPlaybackState, PositionedTree, AnimationBeat } from '../types/tree'
 import { TreeViewportHandle } from '../components/tree/TreeViewportHandle'
 
-export type GrowthCameraMode = 'follow' | 'overview'
+export type GrowthCameraMode = 'follow' | 'overview' | 'parallel'
 
 // Zoom level used in follow mode — tight on each node so content is readable
 const FOLLOW_SCALE = 2.2
@@ -57,14 +57,19 @@ export function useGrowthCamera(
       forkTimerRef.current = null
     }
 
-    // Growth completed or skipped → fit full tree
+    // Growth completed or skipped → fit full tree.
+    // In overview mode, OrthoApp owns the end-of-growth camera (pans to terminals
+    // simultaneously with synthesis panel opening), so don't compete with it here.
     if (growth.mode === 'idle' && prevMode !== 'idle') {
-      vp.fitToView()
+      if (cameraMode !== 'overview') vp.fitToView()
       return
     }
 
     // Only drive camera during active playback
     if (growth.mode !== 'playing' && growth.mode !== 'paused_at_decision') return
+
+    // Treat 'parallel' identically to 'overview' — camera fits all visible nodes
+    const effectiveCameraMode = cameraMode === 'parallel' ? 'overview' : cameraMode
 
     const g = growth as { beatIndex: number; sequence: AnimationBeat[] }
     const currentBeat = g.sequence[g.beatIndex]
@@ -79,7 +84,7 @@ export function useGrowthCamera(
         // True decision point: pull back so the fork is visible
         const decisionNode = tree.nodes.find(n => n.id === growth.decisionNodeId)
         if (!decisionNode) return
-        if (cameraMode === 'follow') {
+        if (effectiveCameraMode === 'follow') {
           vp.panToNode(decisionNode, DECISION_SCALE)
         } else {
           vp.fitBranch(visibleIds, tree.nodes, 400)
@@ -89,7 +94,7 @@ export function useGrowthCamera(
         const lastId = visibleIds[visibleIds.length - 1]
         const lastNode = lastId ? nodeMap.get(lastId) : undefined
         if (!lastNode) return
-        if (cameraMode === 'follow') {
+        if (effectiveCameraMode === 'follow') {
           vp.panToNode(lastNode, FOLLOW_SCALE)
         } else {
           vp.fitBranch(visibleIds, tree.nodes, 400)
@@ -111,7 +116,7 @@ export function useGrowthCamera(
       const lastId = visibleIds[visibleIds.length - 1]
       const lastNode = lastId ? nodeMap.get(lastId) : undefined
       if (lastNode) {
-        if (cameraMode === 'follow') {
+        if (effectiveCameraMode === 'follow') {
           vp.panToNode(lastNode, DECISION_SCALE)
         } else {
           vp.fitBranch(visibleIds, tree.nodes, 250)
@@ -126,7 +131,20 @@ export function useGrowthCamera(
       return
     }
 
-    if (cameraMode === 'follow') {
+    // Intro beat: snap camera instantly to root node so the skeleton card is
+    // immediately visible (panToNode has a 300ms animation which would leave
+    // a blank-looking viewport while the camera travels there).
+    if (currentBeat.phase === 'intro') {
+      const rootNode =
+        tree.nodes.find(n => n.id === 'root') ??
+        [...tree.nodes].sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))[0]
+      if (rootNode) {
+        vp.fitBranch([rootNode.id], tree.nodes, 0)
+      }
+      return
+    }
+
+    if (effectiveCameraMode === 'follow') {
       // Find the last visible node — the most recently revealed
       const lastId = visibleIds[visibleIds.length - 1]
       const lastNode = lastId ? nodeMap.get(lastId) : undefined
@@ -154,8 +172,11 @@ export function useGrowthCamera(
         }
       }
     } else {
-      // Overview: keep fitting all visible nodes, faster animation so it feels live
-      vp.fitBranch(visibleIds, tree.nodes, 180)
+      // Overview: keep fitting all visible nodes, faster animation so it feels live.
+      // Skip animation when there's only one node — camera is already snapped there
+      // from the intro beat, and a 180ms re-fit to the same position causes jitter.
+      const overviewAnimMs = visibleIds.length <= 1 ? 0 : 180
+      vp.fitBranch(visibleIds, tree.nodes, overviewAnimMs)
     }
   }, [growth, cameraMode, tree, viewportRef])
 }

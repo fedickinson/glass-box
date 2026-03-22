@@ -440,6 +440,7 @@ function AppLayout() {
           focusState={state.focusState}
           annotations={state.annotations}
           pinnedBranchId={state.pinnedBranchId}
+          auditLog={state.auditLog}
           onBranchClick={branchId => dispatch({ type: 'FOCUS_BRANCH', branchId })}
           onHypothesisClick={(diagnosis, branchIds) => dispatch({ type: 'FOCUS_HYPOTHESIS', diagnosis, branchIds })}
           onEvidenceNodeClick={nodeId => dispatch({ type: 'PEEK_NODE', nodeId })}
@@ -455,10 +456,13 @@ function AppLayout() {
             type: 'APPEND_AUDIT',
             entry: {
               type: 'doctor',
-              summary: `Reviewed "${diagnosis}"${rating ? ` — ${rating === 'up' ? 'Agreed ↑' : 'Disagreed ↓'}` : ''}${text ? `: ${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` : ''}`,
+              action: 'assess',
+              summary: `Assessment: ${rating === 'up' ? 'Agree' : rating === 'down' ? 'Disagree' : 'Clinical note'} — ${diagnosis}`,
               detail: text || null,
               nodeId: null,
               branchId: null,
+              hypothesisDiagnosis: diagnosis,
+              assessmentRating: rating,
             },
           })}
         />

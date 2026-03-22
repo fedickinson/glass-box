@@ -14,6 +14,7 @@ interface Props {
   onStepForward: () => void
   onStepBackward: () => void
   onSkipToEnd: () => void
+  cinematicAutoPlay?: boolean
 }
 
 function getBeatIndex(growth: GrowthPlaybackState): number {
@@ -37,6 +38,7 @@ export default function GrowthControls({
   onStepForward,
   onStepBackward,
   onSkipToEnd,
+  cinematicAutoPlay = false,
 }: Props) {
   const beatIndex = getBeatIndex(growth)
   const totalBeats = getTotalBeats(growth)
@@ -73,8 +75,8 @@ export default function GrowthControls({
         flexShrink: 0,
       }}
     >
-      {/* Auto-pause label */}
-      {isPausedAtDecision && (
+      {/* Auto-pause label — hidden in cinematic mode since we auto-advance */}
+      {isPausedAtDecision && !cinematicAutoPlay && (
         <div
           style={{
             fontSize: 9,
@@ -113,7 +115,8 @@ export default function GrowthControls({
         </div>
       )}
 
-      {/* Step back */}
+      {/* Step back — hidden in cinematic mode */}
+      {!cinematicAutoPlay && (
       <button
         onClick={onStepBackward}
         title="Step back ([)"
@@ -121,6 +124,7 @@ export default function GrowthControls({
       >
         ‹
       </button>
+      )}
 
       {/* Play / Pause */}
       <button
@@ -139,7 +143,8 @@ export default function GrowthControls({
         {isPlaying ? <PauseIcon size={12} color="currentColor" /> : <PlayIcon size={12} color="currentColor" />}
       </button>
 
-      {/* Step forward */}
+      {/* Step forward — hidden in cinematic mode */}
+      {!cinematicAutoPlay && (
       <button
         onClick={onStepForward}
         title="Step forward (])"
@@ -147,6 +152,7 @@ export default function GrowthControls({
       >
         ›
       </button>
+      )}
 
       {/* Progress bar + counter */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -190,11 +196,15 @@ export default function GrowthControls({
           flexShrink: 0,
         }}
       >
-        {(['follow', 'overview'] as GrowthCameraMode[]).map(mode => (
+        {(['follow', 'overview', 'parallel'] as GrowthCameraMode[]).map(mode => (
           <button
             key={mode}
             onClick={() => onCameraMode(mode)}
-            title={mode === 'follow' ? 'Follow primary path' : 'Zoom out to show all branches'}
+            title={
+              mode === 'follow'   ? 'Follow primary path' :
+              mode === 'overview' ? 'Zoom out to show all branches' :
+                                    'All branches grow simultaneously'
+            }
             style={{
               height: 24,
               padding: '0 8px',
@@ -203,13 +213,13 @@ export default function GrowthControls({
               letterSpacing: '0.04em',
               cursor: 'pointer',
               border: 'none',
-              borderRight: mode === 'follow' ? '1px solid rgba(0,0,0,0.1)' : 'none',
+              borderRight: mode !== 'parallel' ? '1px solid rgba(0,0,0,0.1)' : 'none',
               background: cameraMode === mode ? 'rgba(59,125,216,0.12)' : 'rgba(0,0,0,0.03)',
               color: cameraMode === mode ? '#1A52A8' : 'rgba(0,0,0,0.4)',
               transition: 'all 100ms ease-out',
             }}
           >
-            {mode === 'follow' ? '⊙ Follow' : '⊕ Overview'}
+            {mode === 'follow' ? '⊙ Follow' : mode === 'overview' ? '⊕ Overview' : '⑃ Parallel'}
           </button>
         ))}
       </div>

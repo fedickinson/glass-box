@@ -14,9 +14,10 @@ interface Props {
   safetySummary: SafetySummary
   onViewInTree: (branchId: string) => void
   onRestoreBranch: (branchId: string) => void
+  onViewAuditTrail?: () => void
 }
 
-export default function SafetyComplianceSection({ safetySummary, onViewInTree, onRestoreBranch }: Props) {
+export default function SafetyComplianceSection({ safetySummary, onViewInTree, onRestoreBranch, onViewAuditTrail }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [confirmingRestore, setConfirmingRestore] = useState<string | null>(null)
 
@@ -102,6 +103,7 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
                 alignSelf: 'stretch',
                 whiteSpace: 'nowrap',
               }}
+              onClick={onViewAuditTrail}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(26,112,66,0.14)' }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(26,112,66,0.08)' }}
             >

@@ -1,17 +1,19 @@
 /** SynthesisPanel — interactive review interface: recommendation, hypothesis cards, safety compliance */
-import React, { useState, useEffect } from 'react'
-import { SynthesisData, FocusState, DoctorAnnotation, DoctorAnnotationType, SafetyViolation } from '../../types/tree'
+import React, { useState, useEffect, useRef } from 'react'
+import { SynthesisData, FocusState, DoctorAnnotation, DoctorAnnotationType, SafetyViolation, AuditEntry } from '../../types/tree'
 import RecommendationHeader from './RecommendationHeader'
 import HypothesisCard from './HypothesisCard'
 import SafetyComplianceSection from './SafetyComplianceSection'
-import { WarningIcon, CheckIcon, ChevronDownIcon } from '../shared/Icons'
+import AuditTrailPanel from './AuditTrailPanel'
+import { WarningIcon, CheckIcon, ChevronDownIcon, DotFilledIcon } from '../shared/Icons'
 
 interface Props {
   synthesis: SynthesisData
-  synthesisPhase?: 'pre' | 'generating' | 'revealed'
+  synthesisPhase?: 'pre' | 'generating' | 'loading' | 'revealed'
   focusState: FocusState
   annotations: DoctorAnnotation[]
   pinnedBranchId: string | null
+  auditLog: AuditEntry[]
   onBranchClick: (branchId: string) => void
   onHypothesisClick: (diagnosis: string, branchIds: string[]) => void
   onEvidenceNodeClick: (nodeId: string) => void
@@ -144,6 +146,7 @@ export default function SynthesisPanel({
   focusState,
   annotations,
   pinnedBranchId,
+  auditLog,
   onBranchClick,
   onHypothesisClick,
   onEvidenceNodeClick,
@@ -157,6 +160,22 @@ export default function SynthesisPanel({
   onRemoveAnnotation,
   onAddReview,
 }: Props) {
+  const [activeTab, setActiveTab] = useState<'synthesis' | 'audit'>('synthesis')
+  const [unreadAudit, setUnreadAudit] = useState(0)
+  const prevAuditLen = useRef(auditLog.length)
+
+  // Track unread live audit entries (not mock entries) when synthesis tab is active
+  useEffect(() => {
+    if (activeTab === 'synthesis' && auditLog.length > prevAuditLen.current) {
+      setUnreadAudit(u => u + (auditLog.length - prevAuditLen.current))
+    }
+    prevAuditLen.current = auditLog.length
+  }, [auditLog.length, activeTab])
+
+  function handleOpenAudit() {
+    setActiveTab('audit')
+    setUnreadAudit(0)
+  }
   const { hypothesisGroups } = synthesis
   const primaryGroup = hypothesisGroups.find(g => g.tag === 'PRIMARY') ?? null
   const [primaryExpanded, setPrimaryExpanded] = useState(false)
@@ -204,8 +223,72 @@ export default function SynthesisPanel({
     const isOpening = expandedDiagnosis !== diagnosis
     setExpandedDiagnosis(prev => prev === diagnosis ? null : diagnosis)
     if (isOpening) {
+      setPrimaryExpanded(false)
       onHypothesisClick(diagnosis, branchIds)
     }
+  }
+
+  // Post-generation loading state — panel slides in, content builds before reveal
+  if (synthesisPhase === 'loading') {
+    return (
+      <div
+        className="flex flex-col items-center justify-center overflow-hidden"
+        style={{
+          width: '100%',
+          height: '100%',
+          background: 'rgba(250,251,255,0.94)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.9)',
+          gap: 28,
+        }}
+      >
+        {/* Pulsing icon — green tint signals completion */}
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          background: 'linear-gradient(148deg, rgba(45,138,86,0.12) 0%, rgba(45,138,86,0.06) 100%)',
+          border: '1px solid rgba(45,138,86,0.22)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'synthesis-pulse 1.4s ease-in-out infinite',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="9" r="7" stroke="#2D8A56" strokeWidth="1.5" fill="rgba(45,138,86,0.08)"/>
+            <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#2D8A56" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+
+        {/* Label + dots */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            fontSize: 11.5, fontWeight: 600, letterSpacing: '0.04em',
+            color: 'rgba(0,0,0,0.45)',
+            animation: 'synthesis-pulse 1.4s ease-in-out infinite',
+          }}>
+            Diagnostics loading
+          </div>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            {[1, 2, 3].map(i => (
+              <span key={i} style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: '#2D8A56',
+                display: 'inline-block',
+                animation: `synthesis-dot-${i} 1.0s ease-in-out infinite`,
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Skeleton lines — filling in */}
+        <div style={{ width: '72%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="synthesis-skeleton" style={{ height: 10, width: '90%' }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '70%' }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '80%' }} />
+          <div style={{ height: 4 }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '65%' }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '85%' }} />
+        </div>
+      </div>
+    )
   }
 
   // Loading state shown during growth playback
@@ -214,7 +297,7 @@ export default function SynthesisPanel({
       <div
         className="flex flex-col items-center justify-center overflow-hidden"
         style={{
-          width: '35%',
+          width: '100%',
           background: 'rgba(250,251,255,0.94)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
@@ -273,16 +356,61 @@ export default function SynthesisPanel({
 
   return (
     <div
-      className="flex flex-col overflow-hidden"
+      className="flex flex-col overflow-hidden h-full"
       style={{
-        width: '35%',
+        width: '100%',
         background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.9)',
       }}
     >
-      <div
+      {/* ── Tab row ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 0,
+        borderBottom: '1px solid rgba(0,0,0,0.06)',
+        padding: '0 16px',
+        flexShrink: 0,
+      }}>
+        {(['synthesis', 'audit'] as const).map(tab => {
+          const isActive = activeTab === tab
+          const label = tab === 'synthesis' ? 'Synthesis' : 'Audit Trail'
+          return (
+            <button
+              key={tab}
+              onClick={() => tab === 'audit' ? handleOpenAudit() : setActiveTab('synthesis')}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '8px 10px 7px',
+                fontSize: 10, fontWeight: isActive ? 600 : 400,
+                color: isActive ? '#1A52A8' : 'rgba(0,0,0,0.40)',
+                borderBottom: isActive ? '2px solid #1A52A8' : '2px solid transparent',
+                marginBottom: -1,
+                display: 'flex', alignItems: 'center', gap: 4,
+                transition: 'color 120ms',
+                letterSpacing: '0.01em',
+              }}
+            >
+              {label}
+              {tab === 'audit' && unreadAudit > 0 && (
+                <DotFilledIcon size={5} color="#C53D2F" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Audit Trail view ── */}
+      {activeTab === 'audit' && (
+        <AuditTrailPanel
+          auditLog={auditLog}
+          onBranchClick={onBranchClick}
+          onSwitchToSynthesis={() => setActiveTab('synthesis')}
+        />
+      )}
+
+      {/* ── Synthesis view ── */}
+      {activeTab === 'synthesis' && <div
         className="flex-1 overflow-y-auto"
         style={{ padding: '14px 20px' }}
       >
@@ -310,6 +438,7 @@ export default function SynthesisPanel({
               const isOpening = !primaryExpanded
               setPrimaryExpanded(p => !p)
               if (isOpening && primaryGroup) {
+                setExpandedDiagnosis(null)
                 onHypothesisClick(primaryGroup.diagnosis, primaryGroup.branchIds)
               }
             }}
@@ -467,6 +596,7 @@ export default function SynthesisPanel({
           safetySummary={synthesis.safetySummary}
           onViewInTree={branchId => onBranchClick(branchId)}
           onRestoreBranch={onRestoreBranch}
+          onViewAuditTrail={handleOpenAudit}
         />
 
         {/* Clinical Assessment */}
@@ -649,6 +779,7 @@ export default function SynthesisPanel({
 
         </div>{/* end footer section */}
       </div>
+      }{/* end synthesis tab */}
     </div>
   )
 }

@@ -185,6 +185,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       nextMap.set(action.branchId, action.source)
       const entry = audit({
         type: action.source === 'shield' ? 'shield' : 'doctor',
+        action: 'prune',
         summary: action.source === 'doctor'
           ? `Dr. pruned branch: ${action.branchId}`
           : `Shield terminated: ${action.branchId}`,
@@ -208,6 +209,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       nextMap.delete(action.branchId)
       const entry = audit({
         type: 'doctor',
+        action: 'restore',
         summary: `Dr. restored branch: ${action.branchId}`,
         detail: null,
         nodeId: null,
@@ -237,6 +239,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       }
       const entry = audit({
         type: 'doctor',
+        action: 'annotate',
         summary: `Dr. ${verbMap[action.annotationType] ?? 'annotated'}: ${node?.headline ?? action.nodeId}`,
         detail: action.content,
         nodeId: action.nodeId,
@@ -259,6 +262,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     case 'PIN_BRANCH': {
       const entry = audit({
         type: 'doctor',
+        action: 'pin',
         summary: `Dr. endorsed branch: ${action.branchId}`,
         detail: null,
         nodeId: null,
@@ -287,7 +291,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     // ── Growth playback ────────────────────────────────────────────
 
     case 'START_GROWTH': {
-      const sequence = buildAnimationSequence()
+      const sequence = action.sequence ?? buildAnimationSequence()
       const entry = audit({
         type: 'system',
         summary: 'System initiated reasoning exploration',

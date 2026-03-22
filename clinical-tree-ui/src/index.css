@@ -48,3 +48,28 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Connection path draw-in animation (used during growth playback) */
+@keyframes draw-connection {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Intro skeleton card pulse — repeating breathe animation before first node appears */
+@keyframes assessment-loading-pulse {
+  0%, 100% { opacity: 0.42; }
+  50%       { opacity: 0.82; }
+}
+
+/* Intro skeleton card fade-in — plays once on mount */
+@keyframes card-intro-fadein {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Terminal card glow ring — plays once on first reveal during generation */
+@keyframes terminal-glow-ring {
+  0%   { opacity: 0;   }
+  12%  { opacity: 1;   }
+  55%  { opacity: 0.7; }
+  100% { opacity: 0;   }
+}

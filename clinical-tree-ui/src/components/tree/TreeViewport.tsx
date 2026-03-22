@@ -5,8 +5,8 @@ import { PositionedNode } from '../../types/tree'
 
 export interface TreeViewportHandle {
   fitToView: () => void
-  /** Fit a set of nodes into view. animMs defaults to 300ms. */
-  fitBranch: (branchNodeIds: string[], nodes: PositionedNode[], animMs?: number) => void
+  /** Fit a set of nodes into view. animMs defaults to 300ms. padX/padY default to 60/24. */
+  fitBranch: (branchNodeIds: string[], nodes: PositionedNode[], animMs?: number, padX?: number, padY?: number) => void
   /** Pan to center a node. If targetScale is provided, zoom to that scale too. */
   panToNode: (node: PositionedNode, targetScale?: number) => void
 }
@@ -53,7 +53,7 @@ const TreeViewport = forwardRef<TreeViewportHandle, Props>(
       transformRef.current?.resetTransform(300, 'easeOut')
     },
 
-    fitBranch(branchNodeIds, nodes, animMs = 300) {
+    fitBranch(branchNodeIds, nodes, animMs = 300, padX = 60, padY = 24) {
       const api = transformRef.current
       const container = containerRef.current
       if (!api || !container) return
@@ -72,8 +72,7 @@ const TreeViewport = forwardRef<TreeViewportHandle, Props>(
 
       const cw = container.clientWidth
       const ch = container.clientHeight
-      const pad = 80
-      const scale = Math.min((cw - pad * 2) / bw, (ch - pad * 2) / bh, 1.4)
+      const scale = Math.min((cw - padX * 2) / bw, (ch - padY * 2) / bh, 2.2)
       const cx = (minX + maxX) / 2
       const cy = (minY + maxY) / 2
       const newX = cw / 2 - cx * scale
@@ -104,7 +103,8 @@ const TreeViewport = forwardRef<TreeViewportHandle, Props>(
         initialScale={Math.max(minScale, Math.min(0.72, maxScale))}
         minScale={minScale}
         maxScale={maxScale}
-        limitToBounds={false}
+        limitToBounds={true}
+        centerZoomedOut={true}
         centerOnInit={true}
         smooth={true}
         wheel={{ smoothStep: 0.001 }}

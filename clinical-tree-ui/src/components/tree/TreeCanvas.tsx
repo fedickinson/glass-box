@@ -72,6 +72,23 @@ export default function TreeCanvas({
   // For hypothesis_focused: union of all paths for each branch in the group.
   const focusedNodeIds = useMemo((): Set<string> | null => {
     if (focusState.mode === 'branch_focused') {
+      const node = nodes.find(n => n.id === focusState.selectedNodeId)
+      if (node?.is_decision_point) {
+        // BFS using parent_id to collect all descendants of the decision node.
+        // Uses `nodes` (a declared dependency) rather than `connections` to avoid stale closure.
+        const result = new Set<string>([node.id])
+        const queue = [node.id]
+        while (queue.length) {
+          const cur = queue.shift()!
+          for (const n of nodes) {
+            if (n.parent_id === cur && !result.has(n.id)) {
+              result.add(n.id)
+              queue.push(n.id)
+            }
+          }
+        }
+        return result
+      }
       return new Set(focusState.branchNodeIds)
     }
     if (focusState.mode === 'hypothesis_focused') {
@@ -104,6 +121,12 @@ export default function TreeCanvas({
     (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
   )
 
+  // Intro beat: find root node for skeleton card positioning
+  const introNode =
+    growthBeat !== null && growthBeat.visibleIds.length === 0
+      ? (nodes.find(n => n.id === 'root') ?? orderedNodes[0])
+      : null
+
   // Build a set of visible node IDs from the current beat.
   // null means no growth active — all nodes are visible.
   const growthVisibleSet = growthBeat ? new Set(growthBeat.visibleIds) : null
@@ -114,6 +137,7 @@ export default function TreeCanvas({
       : undefined
 
   const isFocused = focusState.mode !== 'idle'
+  const isFocusedDecision = selectedNode?.is_decision_point ?? false
 
   return (
     <svg
@@ -185,6 +209,7 @@ export default function TreeCanvas({
         connections={connections}
         focusedNodeIds={focusedNodeIds}
         isFocused={isFocused}
+        isFocusedDecision={isFocusedDecision}
         prunedBranchIds={prunedBranchIds}
         pruneSourceMap={pruneSourceMap}
         growthBeat={growthBeat}
@@ -210,6 +235,44 @@ export default function TreeCanvas({
       })()}
 
 
+      {/* ── Intro skeleton card — visible only during the intro beat before any node appears ── */}
+      {introNode && (() => {
+        const nx = introNode.x, ny = introNode.y
+        const nw = introNode.width, nh = introNode.height
+        return (
+          <g style={{ animation: 'card-intro-fadein 0.5s ease-out forwards', pointerEvents: 'none' }}>
+            {/* Outer glow halo */}
+            <rect x={nx - 12} y={ny - 12} width={nw + 24} height={nh + 24} rx={16}
+              fill="rgba(26,95,180,0.04)" stroke="rgba(26,95,180,0.10)" strokeWidth={8}
+              style={{ animation: 'assessment-loading-pulse 1.6s ease-in-out infinite' }} />
+            {/* Card shell */}
+            <rect x={nx} y={ny} width={nw} height={nh} rx={12}
+              fill="rgba(220,237,255,0.62)" stroke="rgba(26,95,180,0.18)" strokeWidth={1}
+              style={{ animation: 'assessment-loading-pulse 1.6s ease-in-out infinite' }} />
+            {/* Left accent bar */}
+            <rect x={nx} y={ny} width={3} height={nh} rx={1.5}
+              fill="rgba(26,95,180,0.55)"
+              style={{ animation: 'assessment-loading-pulse 1.6s ease-in-out infinite' }} />
+            {/* Skeleton lines */}
+            <rect x={nx + 16} y={ny + 18} width={nw * 0.55} height={10} rx={5}
+              fill="rgba(26,95,180,0.18)"
+              style={{ animation: 'assessment-loading-pulse 1.6s 0.1s ease-in-out infinite' }} />
+            <rect x={nx + 16} y={ny + 38} width={nw * 0.80} height={8} rx={4}
+              fill="rgba(26,95,180,0.12)"
+              style={{ animation: 'assessment-loading-pulse 1.6s 0.25s ease-in-out infinite' }} />
+            <rect x={nx + 16} y={ny + 54} width={nw * 0.65} height={8} rx={4}
+              fill="rgba(26,95,180,0.10)"
+              style={{ animation: 'assessment-loading-pulse 1.6s 0.4s ease-in-out infinite' }} />
+            {/* "Initializing assessment…" label */}
+            <text x={nx + nw / 2} y={ny + nh - 14} textAnchor="middle"
+              fontSize={10} fill="rgba(26,95,180,0.45)" fontFamily="system-ui, sans-serif"
+              style={{ animation: 'assessment-loading-pulse 1.6s 0.6s ease-in-out infinite' }}>
+              Initializing assessment…
+            </text>
+          </g>
+        )
+      })()}
+
       {/* ── Nodes ── */}
       {orderedNodes.map(node => {
         const focusRole = computeFocusRole(node, focusState, selectedNode, focusedNodeIds)
@@ -225,8 +288,20 @@ export default function TreeCanvas({
           !growthBeat.activeBranchIds.includes(node.branch_id)
 
         if (node.isTerminal) {
+          const nx = node.x, ny = node.y, nw = node.width, nh = node.height
           return (
-            <g key={node.id} style={growthDimmed ? { opacity: 0.35, transition: 'opacity 300ms ease-out' } : { transition: 'opacity 300ms ease-out' }}>
+            <g key={node.id} style={growthDimmed ? { opacity: 0.52, transition: 'opacity 300ms ease-out' } : { transition: 'opacity 300ms ease-out' }}>
+              {/* Glow ring — mounts when node first becomes visible during growth, plays once */}
+              {growthBeat !== null && isVisible && (
+                <g style={{ animation: 'terminal-glow-ring 3s ease-out forwards', pointerEvents: 'none' }}>
+                  <rect x={nx - 20} y={ny - 20} width={nw + 40} height={nh + 40} rx={18}
+                    fill="rgba(212,149,10,0.05)" stroke="rgba(212,149,10,0.08)" strokeWidth={14} />
+                  <rect x={nx - 10} y={ny - 10} width={nw + 20} height={nh + 20} rx={14}
+                    fill="none" stroke="rgba(212,149,10,0.22)" strokeWidth={5} />
+                  <rect x={nx - 3} y={ny - 3} width={nw + 6} height={nh + 6} rx={11}
+                    fill="none" stroke="rgba(212,149,10,0.60)" strokeWidth={1.5} />
+                </g>
+              )}
               <TerminalCard
                 node={node}
                 variant={getTerminalVariant(node, isPruned, pruneSource, convergences)}
@@ -240,7 +315,7 @@ export default function TreeCanvas({
         }
 
         return (
-          <g key={node.id} style={growthDimmed ? { opacity: 0.35, transition: 'opacity 300ms ease-out' } : { transition: 'opacity 300ms ease-out' }}>
+          <g key={node.id} style={growthDimmed ? { opacity: 0.52, transition: 'opacity 300ms ease-out' } : { transition: 'opacity 300ms ease-out' }}>
             <TreeNode
               node={node}
               focusRole={focusRole}

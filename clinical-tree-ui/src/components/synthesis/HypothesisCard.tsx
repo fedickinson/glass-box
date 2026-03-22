@@ -623,17 +623,13 @@ export default function HypothesisCard({
   }
 
   function handleThumb(rating: 'up' | 'down') {
-    const next = thumbRating === rating ? null : rating
-    setThumbRating(next)
-    if (next !== null) {
-      onAddReview(group.diagnosis, next, submittedReview ?? '')
-    }
+    setThumbRating(prev => prev === rating ? null : rating)
   }
 
   function handleSubmitReview() {
     const text = reviewDraft.trim()
-    if (!text) return
-    setSubmittedReview(text)
+    if (!thumbRating && !text) return
+    setSubmittedReview(text || null)
     setShowReviewInput(false)
     setReviewDraft('')
     onAddReview(group.diagnosis, thumbRating, text)
@@ -894,12 +890,12 @@ export default function HypothesisCard({
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
                 <button
                   onClick={handleSubmitReview}
-                  disabled={!reviewDraft.trim()}
+                  disabled={!thumbRating && !reviewDraft.trim()}
                   style={{
                     fontSize: 9.5, fontWeight: 600, padding: '3px 10px', borderRadius: 5,
-                    border: 'none', cursor: reviewDraft.trim() ? 'pointer' : 'default',
-                    background: reviewDraft.trim() ? '#1A52A8' : 'rgba(0,0,0,0.08)',
-                    color: reviewDraft.trim() ? '#fff' : 'rgba(0,0,0,0.3)',
+                    border: 'none', cursor: (thumbRating || reviewDraft.trim()) ? 'pointer' : 'default',
+                    background: (thumbRating || reviewDraft.trim()) ? '#1A52A8' : 'rgba(0,0,0,0.08)',
+                    color: (thumbRating || reviewDraft.trim()) ? '#fff' : 'rgba(0,0,0,0.3)',
                   }}
                 >
                   Save
@@ -918,33 +914,32 @@ export default function HypothesisCard({
           )}
 
           {/* ── SUBMITTED REVIEW — shown inline after submission ── */}
-          {!attachedToHeader && submittedReview && !showReviewInput && (
+          {!attachedToHeader && (submittedReview !== null || thumbRating !== null) && !showReviewInput && (
             <div
               style={{
                 margin: '6px 10px 6px',
                 padding: '5px 8px',
                 borderRadius: 6,
-                background: 'rgba(26,82,168,0.03)',
-                border: '1px solid rgba(26,82,168,0.09)',
-                borderLeft: '2px solid rgba(26,82,168,0.22)',
+                background: thumbRating === 'up' ? 'rgba(26,110,60,0.04)' : thumbRating === 'down' ? 'rgba(197,61,47,0.04)' : 'rgba(26,82,168,0.03)',
+                border: thumbRating === 'up' ? '1px solid rgba(26,110,60,0.14)' : thumbRating === 'down' ? '1px solid rgba(197,61,47,0.12)' : '1px solid rgba(26,82,168,0.09)',
+                borderLeft: thumbRating === 'up' ? '2px solid rgba(26,110,60,0.40)' : thumbRating === 'down' ? '2px solid rgba(197,61,47,0.40)' : '2px solid rgba(26,82,168,0.22)',
                 display: 'flex', alignItems: 'flex-start', gap: 5,
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 8, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(26,82,168,0.55)', marginBottom: 1 }}>
-                  Your review
-                  {thumbRating && (
-                    <span style={{ marginLeft: 4, fontSize: 8 }}>
-                      {thumbRating === 'up'
-                        ? <span style={{ color: '#1A6E3C' }}>· Agreed</span>
-                        : <span style={{ color: '#C53D2F' }}>· Disagreed</span>}
-                    </span>
-                  )}
+                <div style={{
+                  fontSize: 8, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: thumbRating === 'up' ? 'rgba(26,110,60,0.70)' : thumbRating === 'down' ? 'rgba(197,61,47,0.65)' : 'rgba(26,82,168,0.55)',
+                  marginBottom: submittedReview ? 1 : 0,
+                }}>
+                  {thumbRating === 'up' ? 'Agreed' : thumbRating === 'down' ? 'Disagreed' : 'Your review'}
                 </div>
-                <div style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.58)', lineHeight: 1.4 }}>{submittedReview}</div>
+                {submittedReview && (
+                  <div style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.58)', lineHeight: 1.4 }}>{submittedReview}</div>
+                )}
               </div>
               <button
-                onClick={() => { setSubmittedReview(null); setReviewDraft('') }}
+                onClick={() => { setSubmittedReview(null); setThumbRating(null); setReviewDraft('') }}
                 style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
               >
                 <XIcon size={8} color="rgba(0,0,0,0.22)" />

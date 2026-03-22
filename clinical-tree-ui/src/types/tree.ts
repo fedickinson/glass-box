@@ -416,10 +416,13 @@ export interface AuditEntry {
   id: string
   timestamp: number
   type: 'system' | 'shield' | 'doctor'
+  action?: 'annotate' | 'assess' | 'pin' | 'prune' | 'restore' | 'shield_flag' | 'system_event' | 'sign_off'
   summary: string
   detail: string | null
   nodeId: string | null
   branchId: string | null
+  hypothesisDiagnosis?: string | null
+  assessmentRating?: 'up' | 'down' | null
 }
 
 /**
@@ -461,7 +464,7 @@ export type TreeAction =
   // View mode
   | { type: 'TOGGLE_VIEW_MODE' }
   // Growth playback
-  | { type: 'START_GROWTH' }
+  | { type: 'START_GROWTH'; sequence?: AnimationBeat[] }
   | { type: 'PAUSE_GROWTH' }
   | { type: 'RESUME_GROWTH' }
   | { type: 'STEP_FORWARD' }
