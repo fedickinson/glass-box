@@ -364,7 +364,6 @@ function OrthoLayout({ reasoningMode = false, speed = 'medium' }: { reasoningMod
                 rejectedPath={rejectedPath}
                 safetySummary={synthesis.safetySummary}
                 onClose={() => dispatch({ type: 'CLEAR_FOCUS' })}
-                onPruneBranch={id => dispatch({ type: 'PRUNE_BRANCH', branchId: id, source: 'doctor' })}
                 onRestoreBranch={id => dispatch({ type: 'RESTORE_BRANCH', branchId: id })}
                 onEvidenceNodeClick={nodeId => dispatch({ type: 'PEEK_NODE', nodeId })}
                 onAuditHypothesis={(diagnosis, branchIds) =>
