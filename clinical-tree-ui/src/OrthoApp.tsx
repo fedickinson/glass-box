@@ -406,9 +406,6 @@ function OrthoLayout({ reasoningMode = false, speed = 'medium' }: { reasoningMod
               onAddAnnotation={(nodeId, type, content) =>
                 dispatch({ type: 'ADD_ANNOTATION', nodeId, annotationType: type, content })
               }
-              onPruneBranch={branchId =>
-                dispatch({ type: 'PRUNE_BRANCH', branchId, source: 'doctor' })
-              }
             />
           )}
 
@@ -540,7 +537,6 @@ function OrthoLayout({ reasoningMode = false, speed = 'medium' }: { reasoningMod
               onNodeClick={nodeId => dispatch({ type: 'SELECT_NODE', nodeId })}
               onNodeHoverEnter={setHoveredNodeId}
               onNodeHoverLeave={() => setHoveredNodeId(null)}
-              onPruneBranch={branchId => dispatch({ type: 'PRUNE_BRANCH', branchId, source: 'doctor' })}
               onRestoreBranch={branchId => dispatch({ type: 'RESTORE_BRANCH', branchId })}
               onPinBranch={branchId => dispatch({ type: 'PIN_BRANCH', branchId })}
               onUnpinBranch={() => dispatch({ type: 'UNPIN_BRANCH' })}
