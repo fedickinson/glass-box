@@ -3,26 +3,45 @@
  *  Auto-pause beats are handled by the reducer — the timer just doesn't run
  *  when mode is not 'playing'.
  *
- *  When cinematicAutoPlay is true, also auto-advances through paused_at_decision
- *  beats by dispatching RESUME_GROWTH after the beat's pauseMs delay.
+ *  Speed is read from the growth state and applied as a multiplier to pauseMs:
+ *    slow   × 2.5  — deliberate pacing for narration
+ *    medium × 1.0  — default
+ *    fast   × 0.35 — brisk demo run
  */
 import { useEffect } from 'react'
-import { GrowthPlaybackState, AnimationBeat, TreeAction } from '../types/tree'
+import { GrowthPlaybackState, AnimationBeat, TreeAction, GrowthSpeedSetting } from '../types/tree'
+
+const SPEED_MULTIPLIER: Record<GrowthSpeedSetting, number> = {
+  slow: 2.5,
+  medium: 1.0,
+  fast: 0.35,
+}
 
 export function useGrowthTimer(
   growth: GrowthPlaybackState,
   dispatch: React.Dispatch<TreeAction>,
-  cinematicAutoPlay = false
 ): void {
   const isPlaying = growth.mode === 'playing'
   const isPausedAtDecision = growth.mode === 'paused_at_decision'
-  const beatIndex = (isPlaying || isPausedAtDecision) ? growth.beatIndex : -1
-  const currentBeat: AnimationBeat | undefined = (isPlaying || isPausedAtDecision)
-    ? growth.sequence[growth.beatIndex]
-    : undefined
-  const pauseMs = currentBeat?.pauseMs ?? 1000
 
-  // Normal play timer
+  const beatIndex = (isPlaying || isPausedAtDecision)
+    ? (growth as { beatIndex: number }).beatIndex
+    : -1
+
+  const currentBeat: AnimationBeat | undefined = (isPlaying || isPausedAtDecision)
+    ? (growth as { sequence: AnimationBeat[] }).sequence[beatIndex]
+    : undefined
+
+  const speed = (isPlaying || isPausedAtDecision)
+    ? (growth as { speed: GrowthSpeedSetting }).speed
+    : 'medium'
+
+  const scaledMs = Math.round((currentBeat?.pauseMs ?? 1000) * SPEED_MULTIPLIER[speed])
+  const pauseMs = currentBeat?.holdMs != null
+    ? Math.max(currentBeat.holdMs, scaledMs)
+    : scaledMs
+
+  // Normal play: advance to next beat after pauseMs
   useEffect(() => {
     if (!isPlaying) return
     const id = setTimeout(() => dispatch({ type: 'GROWTH_TICK' }), pauseMs)
@@ -30,11 +49,12 @@ export function useGrowthTimer(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, beatIndex, dispatch])
 
-  // Cinematic auto-advance through decision pauses
+  // Auto-advance through decision pauses — resumes after the beat's pauseMs
+  // so the decision-point pulse animation plays before continuing
   useEffect(() => {
-    if (!cinematicAutoPlay || !isPausedAtDecision) return
+    if (!isPausedAtDecision) return
     const id = setTimeout(() => dispatch({ type: 'RESUME_GROWTH' }), pauseMs)
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cinematicAutoPlay, isPausedAtDecision, beatIndex, dispatch])
+  }, [isPausedAtDecision, beatIndex, dispatch])
 }

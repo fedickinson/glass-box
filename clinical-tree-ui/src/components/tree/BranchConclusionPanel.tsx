@@ -62,7 +62,7 @@ const VARIANT_CFG = {
   },
 }
 
-const DRAWER_HEIGHT = 300
+const DRAWER_HEIGHT = 260
 
 export default function BranchConclusionPanel({
   terminalNode, variant, branchSummary, convergences, rejectedPath, safetySummary,
@@ -91,20 +91,13 @@ export default function BranchConclusionPanel({
   const otherTerminalIds = sameGroup ? sameGroup.terminalNodeIds.filter(id => id !== terminalNode.id) : []
 
   const nodeChecks       = terminalNode.terminal_safety_checks ?? []
-  const branchPassChecks = safetySummary.passedChecks.slice(0, 4)
-  const keyEvidence      = branchSummary?.nodeSummaries.filter(s => s.isKeyStep).slice(0, 6) ?? []
+  const branchPassChecks = safetySummary.passedChecks.slice(0, 3)
+  const keyEvidence      = branchSummary?.nodeSummaries.filter(s => s.isKeyStep).slice(0, 4) ?? []
 
   const hasSafetyFlag    = nodeChecks.some(c => c.status === 'flag')
   const isContradicted   = !!terminalNode.terminal_contradiction
   const isConverging     = otherTerminalIds.length > 0
 
-  const actionLabel: React.ReactNode = hasSafetyFlag
-    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><WarningIcon size={11} color="#8B4800" /> Requires specialist review</span>
-    : isContradicted
-    ? 'Review reasoning trace →'
-    : isConverging
-    ? 'View corroborating paths →'
-    : 'View reasoning trace →'
   const actionIsGate = hasSafetyFlag
 
   return (
@@ -125,161 +118,145 @@ export default function BranchConclusionPanel({
     >
       <div style={{ height: DRAWER_HEIGHT, display: 'flex', flexDirection: 'column' }}>
 
-        {/* ── Header ── */}
+        {/* ── Header — compact single row ── */}
         <div style={{
-          padding: '9px 16px 8px',
+          padding: '7px 14px',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
+          gap: 10,
           flexShrink: 0,
         }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Row 1: variant tag + convergence note */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <span style={{
-                fontSize: 7.5, fontWeight: 800, letterSpacing: '0.12em',
-                padding: '2px 6px', borderRadius: 4,
-                background: cfg.tagBg, border: `1px solid ${cfg.tagBorder}`, color: cfg.tagColor,
-              }}>
-                {cfg.tagLabel}
-              </span>
-              {otherTerminalIds.length > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#2D8A56', fontWeight: 500 }}>
-                  <ConvergeIcon size={11} color="#2D8A56" />
-                  Also reached by {otherTerminalIds.length === 1 ? '1 other path' : `${otherTerminalIds.length} other paths`}
-                </span>
-              )}
-            </div>
-            {/* Row 2: diagnosis */}
-            <div style={{
-              fontSize: 16, fontWeight: 700, lineHeight: 1.2,
-              color: isPruned ? 'rgba(0,0,0,0.38)' : '#0f172a',
-              textDecoration: isPruned ? 'line-through' : 'none',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {diagnosis}
-            </div>
-            {/* Row 3: path label */}
-            <div style={{ fontSize: 10, color: 'rgba(0,0,0,0.38)', marginTop: 2 }}>
-              {pathLabel}
-            </div>
+          <span style={{
+            fontSize: 7.5, fontWeight: 800, letterSpacing: '0.12em',
+            padding: '2px 6px', borderRadius: 4, flexShrink: 0,
+            background: cfg.tagBg, border: `1px solid ${cfg.tagBorder}`, color: cfg.tagColor,
+          }}>
+            {cfg.tagLabel}
+          </span>
+          <div style={{
+            fontSize: 15, fontWeight: 700, lineHeight: 1.2, flex: 1, minWidth: 0,
+            color: isPruned ? 'rgba(0,0,0,0.38)' : '#0f172a',
+            textDecoration: isPruned ? 'line-through' : 'none',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {diagnosis}
           </div>
+          {otherTerminalIds.length > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#2D8A56', fontWeight: 500, flexShrink: 0 }}>
+              <ConvergeIcon size={10} color="#2D8A56" />
+              {otherTerminalIds.length === 1 ? '+1 path' : `+${otherTerminalIds.length} paths`}
+            </span>
+          )}
+          <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.32)', flexShrink: 0 }}>{pathLabel}</span>
           <button
             onClick={onClose}
             style={{
-              width: 22, height: 22, borderRadius: '50%',
+              width: 20, height: 20, borderRadius: '50%',
               background: 'rgba(0,0,0,0.05)', border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}
           >
-            <XIcon size={12} color="rgba(0,0,0,0.38)" />
+            <XIcon size={11} color="rgba(0,0,0,0.38)" />
           </button>
         </div>
 
         {/* ── Two-column body ── */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
 
-          {/* LEFT — narrative, violation/prune notice, key evidence */}
+          {/* LEFT — narrative + key evidence */}
           <div style={{
-            width: '57%',
+            width: '54%',
             borderRight: '1px solid rgba(0,0,0,0.05)',
             overflowY: 'auto',
-            padding: '10px 14px',
+            padding: '8px 12px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 9,
+            gap: 7,
           }}>
-            {/* Shield violation block */}
+            {/* Shield violation / prune notice */}
             {isShieldKilled && rejectedPath && (
               <div style={{
-                padding: '8px 10px',
-                background: 'rgba(197,61,47,0.06)',
-                border: '1px solid rgba(197,61,47,0.18)',
+                padding: '5px 9px',
+                background: 'rgba(197,61,47,0.05)',
+                border: '1px solid rgba(197,61,47,0.16)',
                 borderLeft: '2px solid #C53D2F',
-                borderRadius: 7,
+                borderRadius: 6,
               }}>
-                <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', color: '#C53D2F', marginBottom: 3 }}>
-                  SAFETY VIOLATION
+                <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', color: '#C53D2F', marginBottom: 2 }}>
+                  SAFETY VIOLATION{guidelineRef ? ` — ${guidelineRef}` : ''}
                 </div>
-                {guidelineRef && (
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#a02a20', marginBottom: 2 }}>
-                    {guidelineRef}
-                  </div>
-                )}
-                <div style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.6)', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.6)', lineHeight: 1.45 }}>
                   {rejectedPath.pruneReason}
                 </div>
               </div>
             )}
-
-            {/* Doctor pruned notice */}
             {isDoctorPruned && (
               <div style={{
-                padding: '8px 10px',
-                background: 'rgba(100,116,139,0.05)',
-                border: '1px solid rgba(100,116,139,0.14)',
-                borderRadius: 7,
+                padding: '5px 9px',
+                background: 'rgba(100,116,139,0.04)',
+                border: '1px solid rgba(100,116,139,0.13)',
+                borderRadius: 6,
               }}>
-                <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', color: '#64748B', marginBottom: 2 }}>
+                <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', color: '#64748B', marginBottom: 2 }}>
                   PRUNED BY CLINICIAN
                 </div>
-                <div style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.55)', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.5)', lineHeight: 1.45 }}>
                   {rejectedPath?.pruneReason ?? 'Branch removed by clinician.'}
                 </div>
               </div>
             )}
 
-            {/* Branch narrative */}
+            {/* Branch narrative — 2 lines max */}
             {branchSummary?.narrativeSummary && (
               <div>
-                <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)', marginBottom: 5 }}>
+                <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.25)', marginBottom: 3 }}>
                   {isShieldKilled ? 'Was exploring' : 'Branch narrative'}
                 </div>
                 <p style={{
-                  fontSize: 12, lineHeight: 1.65, color: isPruned ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.68)',
+                  fontSize: 11.5, lineHeight: 1.55,
+                  color: isPruned ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.62)',
                   margin: 0,
+                  overflow: 'hidden', display: '-webkit-box',
+                  WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                 }}>
                   {branchSummary.narrativeSummary}
                 </p>
               </div>
             )}
 
-            {/* Key evidence */}
+            {/* Key evidence — compact rows */}
             {keyEvidence.length > 0 && (
               <div>
-                <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)', marginBottom: 5 }}>
+                <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.25)', marginBottom: 3 }}>
                   Key evidence
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {keyEvidence.map(ev => (
                     <button
                       key={ev.nodeId}
                       onClick={() => onEvidenceNodeClick(ev.nodeId)}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 7,
-                        padding: '5px 8px', borderRadius: 6,
-                        background: 'none', border: '1px solid rgba(0,0,0,0.07)',
-                        cursor: 'pointer', textAlign: 'left', transition: 'background 120ms',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '4px 7px', borderRadius: 5,
+                        background: 'none', border: '1px solid rgba(0,0,0,0.06)',
+                        cursor: 'pointer', textAlign: 'left', transition: 'background 100ms',
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.025)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                     >
                       <span style={{
                         width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
                         background: ev.type === 'citation' ? '#7C3AED' : ev.type === 'tool' ? '#2D8A56' : '#1A5FB4',
                       }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 500, color: '#111', lineHeight: 1.3 }}>
-                          {ev.headline}
-                        </div>
-                        {ev.source && (
-                          <div style={{ fontSize: 9.5, color: 'rgba(0,0,0,0.36)', marginTop: 1 }}>
-                            {ev.source}
-                          </div>
-                        )}
-                      </div>
-                      <ArrowRightIcon size={11} color="rgba(0,0,0,0.22)" />
+                      <span style={{
+                        flex: 1, minWidth: 0, fontSize: 11, fontWeight: 500,
+                        color: '#111', lineHeight: 1.3,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {ev.headline}
+                      </span>
+                      <ArrowRightIcon size={10} color="rgba(0,0,0,0.18)" />
                     </button>
                   ))}
                 </div>
@@ -287,100 +264,123 @@ export default function BranchConclusionPanel({
             )}
           </div>
 
-          {/* RIGHT — safety status + actions */}
+          {/* RIGHT — safety status + action */}
           <div style={{
-            width: '43%',
+            width: '46%',
             overflow: 'hidden',
-            padding: '10px 12px',
+            padding: '8px 11px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 9,
+            gap: 7,
           }}>
+
             {/* Safety status */}
             {(nodeChecks.length > 0 || branchPassChecks.length > 0 || isShieldKilled) && (
               <div style={{
-                padding: '8px 10px',
-                background: 'rgba(0,0,0,0.02)',
-                borderRadius: 7,
-                border: '1px solid rgba(0,0,0,0.07)',
+                padding: '7px 9px',
+                background: hasSafetyFlag
+                  ? 'rgba(196,90,16,0.04)'
+                  : isShieldKilled
+                  ? 'rgba(197,61,47,0.04)'
+                  : 'rgba(0,0,0,0.02)',
+                borderRadius: 6,
+                border: hasSafetyFlag
+                  ? '1px solid rgba(196,90,16,0.16)'
+                  : isShieldKilled
+                  ? '1px solid rgba(197,61,47,0.16)'
+                  : '1px solid rgba(0,0,0,0.07)',
               }}>
-                <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)', marginBottom: 6 }}>
+                <div style={{
+                  fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: hasSafetyFlag ? '#9a5000' : isShieldKilled ? '#C53D2F' : 'rgba(0,0,0,0.25)',
+                  marginBottom: 5,
+                }}>
                   Safety status
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {nodeChecks.length > 0 ? nodeChecks.map((chk, i) => {
-                    const c = chk.status === 'fail' ? '#C53D2F' : chk.status === 'flag' ? '#C53D2F' : chk.status === 'warn' ? '#B37A0A' : '#2D8A56'
+                    const isFlag = chk.status === 'flag'
+                    const isFail = chk.status === 'fail'
+                    const isWarn = chk.status === 'warn'
+                    const iconColor = isFail ? '#C53D2F' : isFlag ? '#B37A0A' : isWarn ? '#B37A0A' : '#2D8A56'
                     return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                        {chk.status === 'fail' ? <CrossIcon size={11} color={c} />
-                         : chk.status === 'flag' ? <span style={{ display: 'flex', alignItems: 'center', marginTop: 1, flexShrink: 0 }}><DotFilledIcon size={8} color="#C53D2F" /></span>
-                         : chk.status === 'warn' ? <WarningIcon size={11} color={c} />
-                         : <CheckIcon size={11} color={c} />}
-                        <span style={{ fontSize: 11, color: chk.status === 'flag' ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.6)', lineHeight: 1.4 }}>{chk.label}</span>
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                        {isFail ? <CrossIcon size={10} color={iconColor} />
+                         : (isFlag || isWarn) ? <WarningIcon size={10} color={iconColor} />
+                         : <CheckIcon size={10} color={iconColor} />}
+                        <span style={{
+                          fontSize: 10.5, lineHeight: 1.4,
+                          color: (isFlag || isFail) ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.55)',
+                          overflow: 'hidden', display: '-webkit-box',
+                          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                        }}>
+                          {chk.label}
+                        </span>
                       </div>
                     )
                   }) : isShieldKilled ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <CrossIcon size={11} color="#C53D2F" />
-                      <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.6)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <CrossIcon size={10} color="#C53D2F" />
+                      <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.6)' }}>
                         {guidelineRef ? `Violation: ${guidelineRef}` : 'Safety violation'}
                       </span>
                     </div>
-                  ) : branchPassChecks.slice(0, 3).map(chk => (
-                    <div key={chk.nodeId} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <CheckIcon size={11} color="#2D8A56" />
-                      <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.55)' }}>{chk.label}</span>
+                  ) : branchPassChecks.map(chk => (
+                    <div key={chk.nodeId} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <CheckIcon size={10} color="#2D8A56" />
+                      <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {chk.label}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Actions */}
+            {/* Action CTA */}
             <div style={{
-              flex: 1,
-              padding: '8px 10px',
-              background: 'rgba(0,0,0,0.02)',
-              borderRadius: 7,
-              border: '1px solid rgba(0,0,0,0.07)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
+              padding: '6px 9px',
+              background: 'rgba(0,0,0,0.015)',
+              borderRadius: 6,
+              border: '1px solid rgba(0,0,0,0.06)',
             }}>
-              <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)' }}>
+              <div style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.25)', marginBottom: 5 }}>
                 Actions
               </div>
-
               {!isPruned && (
                 <button
                   onClick={actionIsGate ? undefined : () => onAuditHypothesis(diagnosis, [branchId])}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    padding: '7px 10px', borderRadius: 7,
-                    background: actionIsGate ? 'rgba(184,98,0,0.08)' : 'rgba(26,82,168,0.07)',
+                    width: '100%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                    padding: '6px 9px', borderRadius: 6,
+                    background: actionIsGate ? 'rgba(184,98,0,0.09)' : 'rgba(26,82,168,0.07)',
                     border: actionIsGate ? '1px solid rgba(184,98,0,0.22)' : '1px solid rgba(26,82,168,0.18)',
                     color: actionIsGate ? '#8B4800' : '#1A52A8',
                     cursor: actionIsGate ? 'default' : 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>{actionLabel}</span>
-                  {!actionIsGate && <ArrowRightIcon size={11} color={isConverging ? '#2D8A56' : '#1A52A8'} />}
+                  {actionIsGate && <WarningIcon size={10} color="#8B4800" />}
+                  <span style={{ fontSize: 10.5, fontWeight: 600 }}>
+                    {actionIsGate ? 'Requires specialist review' : isContradicted ? 'Review reasoning trace' : isConverging ? 'View corroborating paths' : 'View reasoning trace'}
+                  </span>
+                  {!actionIsGate && <ArrowRightIcon size={10} color={isConverging ? '#2D8A56' : '#1A52A8'} />}
                 </button>
               )}
-
               {isPruned && (
                 <button
                   onClick={() => onRestoreBranch(branchId)}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    padding: '7px 10px', borderRadius: 7,
+                    width: '100%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                    padding: '6px 9px', borderRadius: 6,
                     background: isShieldKilled ? 'rgba(197,61,47,0.07)' : 'rgba(100,116,139,0.07)',
                     border: isShieldKilled ? '1px solid rgba(197,61,47,0.20)' : '1px solid rgba(100,116,139,0.18)',
                     color: isShieldKilled ? '#C53D2F' : '#475569',
                     cursor: 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 600 }}>
                     {isShieldKilled ? 'Override — restore branch' : 'Restore branch'}
                   </span>
                 </button>

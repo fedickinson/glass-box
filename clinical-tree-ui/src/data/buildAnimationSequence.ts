@@ -23,7 +23,7 @@ export function buildAnimationSequence(): AnimationBeat[] {
     newIds: string[],
     activeBranchIds: string[] | null,
     pauseMs: number,
-    opts?: { autoPause?: boolean; isDecisionReveal?: boolean; phase?: string }
+    opts?: { autoPause?: boolean; isDecisionReveal?: boolean; phase?: string; holdMs?: number }
   ): void {
     visible = [...visible, ...newIds]
     beats.push({
@@ -38,7 +38,8 @@ export function buildAnimationSequence(): AnimationBeat[] {
   beat([], null, 1800, { phase: 'intro' })
 
   // ── Phase 1: Shared trunk (fast, ~800ms per node) ──────────────────────────
-  beat(['root'],  null, 800,  { phase: 'trunk' })
+  // holdMs ensures a visible pause at the initial assessment even in fast mode
+  beat(['root'],  null, 800,  { phase: 'trunk', holdMs: 1500 })
   beat(['t0'],    null, 800,  { phase: 'trunk' })
   beat(['tool0'], null, 800,  { phase: 'trunk' })
   beat(['ref0'],  null, 800,  { phase: 'trunk' })

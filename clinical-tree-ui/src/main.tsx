@@ -20,11 +20,14 @@ function setFavicon(href: string) {
 setFavicon(faviconUrl)
 
 const path = window.location.pathname
+const speedSegment = path.split('/')[3] // e.g. 'slow', 'medium', 'fast'
+const isValidSpeed = speedSegment === 'slow' || speedSegment === 'medium' || speedSegment === 'fast'
 
-if (path === '/orthopedics/reasoning') {
+if (path.startsWith('/orthopedics/reasoning')) {
+  const speed = isValidSpeed ? speedSegment : 'medium'
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <OrthoReasoningApp />
+      <OrthoReasoningApp speed={speed} />
     </React.StrictMode>,
   )
 } else if (path === '/orthopedics') {
@@ -40,7 +43,7 @@ if (path === '/orthopedics/reasoning') {
         <img src="${fullLogoUrl}" alt="Clinical Reasoning Tree" style="display:block;margin:0 auto; max-width:455px;" />
 
         <div style="font-size:22px;font-weight:500;color:#111;margin-bottom:8px;">Demo is at <a href="/orthopedics" style="color:#1A52A8;text-decoration:none;">/orthopedics</a></div>
-        <div style="font-size:13px;color:#888;">Navigate to <a href="/orthopedics" style="color:#1A52A8;">/orthopedics</a> for the full view, or <a href="/orthopedics/reasoning" style="color:#1A52A8;">/orthopedics/reasoning</a> for the cinematic generation flow.</div>
+        <div style="font-size:13px;color:#888;">Navigate to <a href="/orthopedics" style="color:#1A52A8;">/orthopedics</a> for the full view, or <a href="/orthopedics/reasoning/slow" style="color:#1A52A8;">/orthopedics/reasoning/slow</a> · <a href="/orthopedics/reasoning/medium" style="color:#1A52A8;">/medium</a> · <a href="/orthopedics/reasoning/fast" style="color:#1A52A8;">/fast</a> for reasoning playback.</div>
       </div>
     </div>
   `
