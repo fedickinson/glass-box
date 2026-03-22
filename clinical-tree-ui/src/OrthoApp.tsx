@@ -421,6 +421,7 @@ function OrthoLayout({ reasoningMode = false, speed = 'medium' }: { reasoningMod
             <GrowthPreStart
               speed={speed}
               onStart={() => dispatch({ type: 'START_GROWTH', speed })}
+              patientContext={ORTHO_PATIENT_CONTEXT}
             />
           )}
         </div>

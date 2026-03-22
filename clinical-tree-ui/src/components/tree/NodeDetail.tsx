@@ -38,7 +38,7 @@ interface Props {
   onNavigateNext: () => void
   onNavigatePrev: () => void
   onScrub: (index: number) => void
-  onFocusBranch: (branchId: string) => void
+  onFocusBranch: (branchId: string, startNodeId?: string) => void
   onAddAnnotation: (nodeId: string, type: DoctorAnnotationType, content: string) => void
 }
 
@@ -234,7 +234,108 @@ export default function NodeDetail({
           </button>
         </div>
 
-        {/* ── Full-width body ── */}
+        {/* ── Decision point: paths-first hero layout ── */}
+        {isDecision && childNodes.length > 0 ? (
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+
+            {/* Decision paths — the hero, always visible */}
+            <div style={{
+              padding: '10px 14px 8px',
+              flexShrink: 0,
+            }}>
+              <div style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: '0.12em',
+                textTransform: 'uppercase', color: '#9a6800', marginBottom: 8,
+              }}>
+                {childNodes.length} directions from this decision
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: 8, overflowX: 'auto' }}>
+                {childNodes.map((child, idx) => {
+                  const preview = getBranchPathPreview(child)
+                  const isPrimary = child.isOnPrimaryPath
+                  const cardAccent = isPrimary ? '#1A5FB4' : `hsl(${(idx * 47 + 210) % 360}, 35%, 42%)`
+                  return (
+                    <button
+                      key={child.id}
+                      onClick={() => onFocusBranch(child.branch_id, child.id)}
+                      style={{
+                        display: 'flex', flexDirection: 'column', gap: 4,
+                        minWidth: 160, flex: '1 1 0',
+                        padding: '9px 12px',
+                        background: isPrimary ? 'rgba(26,95,180,0.05)' : 'rgba(0,0,0,0.025)',
+                        border: `1px solid ${isPrimary ? 'rgba(26,95,180,0.2)' : 'rgba(0,0,0,0.1)'}`,
+                        borderLeft: `3px solid ${cardAccent}`,
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 120ms ease-out, border-color 120ms ease-out',
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLButtonElement).style.background = isPrimary ? 'rgba(26,95,180,0.09)' : 'rgba(0,0,0,0.05)'
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLButtonElement).style.background = isPrimary ? 'rgba(26,95,180,0.05)' : 'rgba(0,0,0,0.025)'
+                      }}
+                    >
+                      {isPrimary && (
+                        <span style={{
+                          fontSize: 7.5, fontWeight: 700, letterSpacing: '0.10em',
+                          textTransform: 'uppercase', color: '#1A5FB4',
+                          marginBottom: 1,
+                        }}>
+                          Primary
+                        </span>
+                      )}
+                      <div style={{
+                        fontSize: 13, fontWeight: 600,
+                        color: isPrimary ? '#1A3A6B' : 'rgba(0,0,0,0.72)',
+                        lineHeight: 1.35,
+                      }}>
+                        {child.headline}
+                      </div>
+                      {preview && (
+                        <div style={{
+                          fontSize: 11, color: 'rgba(0,0,0,0.38)',
+                          lineHeight: 1.4, marginTop: 2,
+                          overflow: 'hidden', display: '-webkit-box',
+                          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                        }}>
+                          {preview}
+                        </div>
+                      )}
+                      <div style={{
+                        marginTop: 'auto', paddingTop: 6,
+                        fontSize: 10, fontWeight: 600,
+                        color: cardAccent,
+                        display: 'flex', alignItems: 'center', gap: 3,
+                      }}>
+                        Explore →
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: 1, background: 'rgba(179,122,10,0.12)', flexShrink: 0, margin: '0 14px' }} />
+
+            {/* Reasoning prose — secondary, scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 14px' }}>
+              {chunkContent(node.content).map((chunk, i) => (
+                <p key={i} style={{
+                  fontSize: 13, lineHeight: 1.6, color: 'rgba(0,0,0,0.5)',
+                  margin: 0, marginTop: i > 0 ? 8 : 0,
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                }}>
+                  {chunk}
+                </p>
+              ))}
+            </div>
+          </div>
+
+        ) : (
+        /* ── Non-decision body ── */
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '9px 16px', gap: 8, minHeight: 0 }}>
 
           {/* Scrollable content area */}
@@ -421,76 +522,9 @@ export default function NodeDetail({
                 <span style={{ fontSize: 10.5, color: '#2D8A56' }}>Shield checked — no issues</span>
               </div>
             )}
-
-            {/* Decision-point paths — expanded, full-width */}
-            {isDecision && childNodes.length > 0 && (
-              <div style={{
-                padding: '10px 14px',
-                background: 'rgba(179,122,10,0.04)',
-                borderRadius: 8,
-                border: '1px solid rgba(179,122,10,0.14)',
-                borderLeft: '3px solid rgba(179,122,10,0.45)',
-              }}>
-                <div style={{
-                  fontSize: 8, fontWeight: 700, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: '#9a6800', marginBottom: 8,
-                }}>
-                  {childNodes.length} paths from this decision
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {childNodes.map(child => {
-                    const preview = getBranchPathPreview(child)
-                    const dotColor = getPathDotColor(child)
-                    return (
-                      <button
-                        key={child.id}
-                        onClick={() => onFocusBranch(child.branch_id)}
-                        style={{
-                          display: 'flex', alignItems: 'flex-start', gap: 9,
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          textAlign: 'left', padding: '4px 0',
-                          borderBottom: '1px solid rgba(0,0,0,0.05)',
-                        }}
-                      >
-                        {/* Path indicator dot */}
-                        <span style={{
-                          width: 7, height: 7, borderRadius: '50%',
-                          background: dotColor,
-                          flexShrink: 0, marginTop: 4,
-                        }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: 14, fontWeight: 600, color: '#1A52A8',
-                            lineHeight: 1.35, marginBottom: preview ? 3 : 0,
-                          }}>
-                            {child.headline}
-                            {child.isOnPrimaryPath && (
-                              <span style={{
-                                marginLeft: 7, fontSize: 8, fontWeight: 700,
-                                letterSpacing: '0.06em', textTransform: 'uppercase', color: '#1A5FB4',
-                                verticalAlign: 'middle',
-                              }}>
-                                Primary
-                              </span>
-                            )}
-                          </div>
-                          {preview && (
-                            <div style={{
-                              fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.4,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              → {preview}
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </div>
+        )}
       </div>
     </div>
   )

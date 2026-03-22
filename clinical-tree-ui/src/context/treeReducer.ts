@@ -1,5 +1,5 @@
 /** treeReducer — handles all TreeAction types for the clinical reasoning tree UI state */
-import { TreeUIState, TreeAction, PositionedNode, AuditEntry, AnimationBeat } from '../types/tree'
+import { TreeUIState, TreeAction, PositionedNode, AuditEntry, AnimationBeat, GrowthSpeedSetting } from '../types/tree'
 import { buildBranchPath } from '../data/transformer'
 import { buildAnimationSequence } from '../data/buildAnimationSequence'
 
@@ -32,6 +32,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
           beatIndex: state.growth.beatIndex,
           sequence: state.growth.sequence,
           previousFocusMode: state.growth.mode,
+          speed: state.growth.speed,
         }
       }
       return {
@@ -49,14 +50,17 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
 
     case 'FOCUS_BRANCH': {
       const branchNodeIds = buildBranchPath(action.branchId, state.tree.nodes)
+      const startIndex = action.startNodeId
+        ? Math.max(0, branchNodeIds.indexOf(action.startNodeId))
+        : 0
       return {
         ...state,
         focusState: {
           mode: 'branch_focused',
           branchId: action.branchId,
           branchNodeIds,
-          selectedNodeId: branchNodeIds[0] ?? null,
-          selectedNodeIndex: 0,
+          selectedNodeId: branchNodeIds[startIndex] ?? null,
+          selectedNodeIndex: startIndex,
         },
       }
     }
@@ -290,8 +294,17 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
 
     // ── Growth playback ────────────────────────────────────────────
 
+    case 'ENTER_REASONING_PRE_START': {
+      return {
+        ...state,
+        focusState: { mode: 'idle' },
+        growth: { mode: 'pre_start' },
+      }
+    }
+
     case 'START_GROWTH': {
       const sequence = action.sequence ?? buildAnimationSequence()
+      const speed: GrowthSpeedSetting = action.speed ?? 'medium'
       const entry = audit({
         type: 'system',
         summary: 'System initiated reasoning exploration',
@@ -302,7 +315,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       return {
         ...state,
         focusState: { mode: 'idle' },
-        growth: { mode: 'playing', beatIndex: 0, sequence },
+        growth: { mode: 'playing', beatIndex: 0, sequence, speed },
         auditLog: [...state.auditLog, entry],
       }
     }
@@ -311,7 +324,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       if (state.growth.mode !== 'playing') return state
       return {
         ...state,
-        growth: { mode: 'paused_manual', beatIndex: state.growth.beatIndex, sequence: state.growth.sequence },
+        growth: { mode: 'paused_manual', beatIndex: state.growth.beatIndex, sequence: state.growth.sequence, speed: state.growth.speed },
       }
     }
 
@@ -320,7 +333,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       if (g.mode !== 'paused_at_decision' && g.mode !== 'paused_manual') return state
       return {
         ...state,
-        growth: { mode: 'playing', beatIndex: g.beatIndex, sequence: g.sequence },
+        growth: { mode: 'playing', beatIndex: g.beatIndex, sequence: g.sequence, speed: g.speed },
         // Clear focus when resuming so tree is unobstructed
         focusState: { mode: 'idle' },
       }
@@ -328,20 +341,22 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
 
     case 'STEP_FORWARD': {
       const g = state.growth
-      if (g.mode === 'idle') return state
+      if (g.mode === 'idle' || g.mode === 'pre_start') return state
       const seq = (g as { sequence: AnimationBeat[] }).sequence
       const cur = (g as { beatIndex: number }).beatIndex
+      const spd = (g as { speed: GrowthSpeedSetting }).speed
       const next = Math.min(cur + 1, seq.length - 1)
-      return { ...state, growth: { mode: 'paused_manual', beatIndex: next, sequence: seq } }
+      return { ...state, growth: { mode: 'paused_manual', beatIndex: next, sequence: seq, speed: spd } }
     }
 
     case 'STEP_BACKWARD': {
       const g = state.growth
-      if (g.mode === 'idle') return state
+      if (g.mode === 'idle' || g.mode === 'pre_start') return state
       const seq = (g as { sequence: AnimationBeat[] }).sequence
       const cur = (g as { beatIndex: number }).beatIndex
+      const spd = (g as { speed: GrowthSpeedSetting }).speed
       const prev = Math.max(cur - 1, 0)
-      return { ...state, growth: { mode: 'paused_manual', beatIndex: prev, sequence: seq } }
+      return { ...state, growth: { mode: 'paused_manual', beatIndex: prev, sequence: seq, speed: spd } }
     }
 
     case 'SKIP_TO_END': {
@@ -402,6 +417,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
             beatIndex: nextBeatIndex,
             sequence,
             decisionNodeId,
+            speed: g.speed,
           },
           auditLog: [...state.auditLog, entry],
         }
@@ -409,7 +425,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
 
       return {
         ...state,
-        growth: { mode: 'playing', beatIndex: nextBeatIndex, sequence },
+        growth: { mode: 'playing', beatIndex: nextBeatIndex, sequence, speed: g.speed },
       }
     }
 

@@ -354,9 +354,15 @@ export interface AnimationBeat {
   activeBranchIds: string[] | null
   /**
    * How long (ms) to hold this beat before auto-advancing.
-   * Only used when autoPause is false or after the user resumes.
+   * Scaled by the current GrowthSpeedSetting multiplier.
    */
   pauseMs: number
+  /**
+   * Absolute minimum hold time in ms, not scaled by speed.
+   * When present, the timer uses Math.max(holdMs, pauseMs * multiplier).
+   * Use on beats that need a visible pause even at fast speed.
+   */
+  holdMs?: number
   /**
    * If true, the growth timer will NOT auto-advance from this beat.
    * The presenter must press Space/Resume to continue.
@@ -381,6 +387,8 @@ export interface AnimationBeat {
   phase?: string
 }
 
+export type GrowthSpeedSetting = 'slow' | 'medium' | 'fast'
+
 /**
  * Growth playback state: controls the incremental tree-growing animation.
  *
@@ -388,25 +396,28 @@ export interface AnimationBeat {
  * Each beat specifies exactly which nodes are visible and which branches are active.
  *
  * Growth auto-pauses at beats where autoPause is true.
- * The presenter clicks resume (or presses space) to continue.
+ * The presenter presses Space to continue.
  * While paused, the presenter can click nodes to explore (paused_exploring),
  * which activates the normal focus/navigation system on the already-rendered nodes.
  */
 export type GrowthPlaybackState =
   | { mode: 'idle' }
+  | { mode: 'pre_start' }
   | {
       mode: 'playing'
       beatIndex: number
       sequence: AnimationBeat[]
+      speed: GrowthSpeedSetting
     }
   | {
       mode: 'paused_at_decision'
       beatIndex: number
       sequence: AnimationBeat[]
       decisionNodeId: string
+      speed: GrowthSpeedSetting
     }
-  | { mode: 'paused_manual'; beatIndex: number; sequence: AnimationBeat[] }
-  | { mode: 'paused_exploring'; beatIndex: number; sequence: AnimationBeat[]; previousFocusMode: 'paused_at_decision' | 'paused_manual' }
+  | { mode: 'paused_manual'; beatIndex: number; sequence: AnimationBeat[]; speed: GrowthSpeedSetting }
+  | { mode: 'paused_exploring'; beatIndex: number; sequence: AnimationBeat[]; previousFocusMode: 'paused_at_decision' | 'paused_manual'; speed: GrowthSpeedSetting }
 
 // ============================================================
 // Audit trail — log of every system and doctor action
@@ -446,7 +457,7 @@ export interface TreeUIState {
 export type TreeAction =
   // Focus actions
   | { type: 'SELECT_NODE'; nodeId: string }
-  | { type: 'FOCUS_BRANCH'; branchId: string }
+  | { type: 'FOCUS_BRANCH'; branchId: string; startNodeId?: string }
   | { type: 'FOCUS_HYPOTHESIS'; diagnosis: string; branchIds: string[] }
   | { type: 'PEEK_NODE'; nodeId: string } // highlight a node within hypothesis_focused (pan + select glow)
   | { type: 'NAVIGATE_NEXT' }
@@ -464,7 +475,8 @@ export type TreeAction =
   // View mode
   | { type: 'TOGGLE_VIEW_MODE' }
   // Growth playback
-  | { type: 'START_GROWTH'; sequence?: AnimationBeat[] }
+  | { type: 'ENTER_REASONING_PRE_START' }
+  | { type: 'START_GROWTH'; sequence?: AnimationBeat[]; speed?: GrowthSpeedSetting }
   | { type: 'PAUSE_GROWTH' }
   | { type: 'RESUME_GROWTH' }
   | { type: 'STEP_FORWARD' }

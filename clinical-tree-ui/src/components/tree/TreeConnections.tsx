@@ -8,8 +8,8 @@ interface Props {
   focusedNodeIds: Set<string> | null
   /** True when any focus mode is active (branch_focused or hypothesis_focused) */
   isFocused: boolean
-  /** True when the focused node is a decision point — changes connection color from blue to amber */
-  isFocusedDecision?: boolean
+  /** If the focused node is a decision point, its ID — used to limit amber to direct children only */
+  focusedDecisionId?: string
   prunedBranchIds: Set<string>
   pruneSourceMap: Map<string, 'shield' | 'doctor'>
   /** Current animation beat — controls connection visibility and dimming */
@@ -20,7 +20,7 @@ export default function TreeConnections({
   connections,
   focusedNodeIds,
   isFocused,
-  isFocusedDecision = false,
+  focusedDecisionId,
   prunedBranchIds,
   pruneSourceMap,
   growthBeat,
@@ -113,6 +113,10 @@ export default function TreeConnections({
         // In idle (nothing focused), no path is singled out.
         const isEffectivelyPrimary = isFocused && isOnFocusedPath
 
+        // Amber applies only to the single connection directly leaving the decision point.
+        const isDirectDecisionConnection =
+          focusedDecisionId !== undefined && conn.sourceId === focusedDecisionId
+
         if (isShieldKilled) {
           stroke = '#C53D2F'
           strokeWidth = 1.5
@@ -123,7 +127,7 @@ export default function TreeConnections({
           strokeWidth = 1
           strokeOpacity = isFocused && !isOnFocusedPath ? 0.05 : 0.2
         } else if (isEffectivelyPrimary) {
-          if (isFocusedDecision) {
+          if (isDirectDecisionConnection) {
             stroke = 'rgba(154,100,0,0.85)'
             strokeWidth = 2.5
             strokeOpacity = 0.85
@@ -135,7 +139,7 @@ export default function TreeConnections({
         } else {
           stroke = 'rgba(154,100,0,0.55)'
           strokeWidth = isOnFocusedPath ? 2 : 1.25
-          strokeOpacity = (isFocused && !isOnFocusedPath && !isFocusedDecision) ? 0.06 : 0.45
+          strokeOpacity = (isFocused && !isOnFocusedPath) ? 0.28 : 0.45
           strokeDasharray = '5,4'
         }
 
@@ -185,8 +189,8 @@ export default function TreeConnections({
         if (isEffectivelyPrimary && !isPruned && !isShieldKilled) {
           const baseOpacity = growthBeat ? growthOpacity : (isFocused && !isOnFocusedPath ? 0.12 : 1)
           const drawProps = isNewlyAppearing ? { pathLength: 1, strokeDasharray: '1', style: drawAnimation } : {}
-          if (isFocusedDecision) {
-            // Amber bloom — solid, no dash
+          if (isDirectDecisionConnection) {
+            // Amber bloom — only on the single connection leaving the decision point
             return (
               <g key={conn.id} style={{ transition: 'opacity 300ms ease-out' }} opacity={baseOpacity}>
                 <path d={conn.pathData} fill="none" stroke="rgba(154,100,0,0.10)" strokeWidth={10} {...drawProps} />
@@ -219,7 +223,7 @@ export default function TreeConnections({
             fill="none"
             stroke={stroke}
             strokeWidth={strokeWidth}
-            strokeOpacity={growthBeat ? strokeOpacity * growthOpacity : (isFocused && !isOnFocusedPath && !isFocusedDecision ? strokeOpacity * 0.15 : strokeOpacity)}
+            strokeOpacity={growthBeat ? strokeOpacity * growthOpacity : (isFocused && !isOnFocusedPath ? strokeOpacity * 0.15 : strokeOpacity)}
             strokeDasharray={isNewlyAppearing ? '1' : strokeDasharray}
             pathLength={isNewlyAppearing ? 1 : undefined}
             style={{ transition: 'stroke-opacity 300ms ease-out, stroke-width 150ms ease-out', ...drawAnimation }}

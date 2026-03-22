@@ -74,9 +74,15 @@ export default function TreeCanvas({
     if (focusState.mode === 'branch_focused') {
       const node = nodes.find(n => n.id === focusState.selectedNodeId)
       if (node?.is_decision_point) {
-        // BFS using parent_id to collect all descendants of the decision node.
-        // Uses `nodes` (a declared dependency) rather than `connections` to avoid stale closure.
+        const nodeMap = new Map(nodes.map(n => [n.id, n]))
         const result = new Set<string>([node.id])
+        // Walk UP to include ancestors (so connections leading into the decision stay visible)
+        let ancestor = node.parent_id ? nodeMap.get(node.parent_id) : undefined
+        while (ancestor) {
+          result.add(ancestor.id)
+          ancestor = ancestor.parent_id ? nodeMap.get(ancestor.parent_id) : undefined
+        }
+        // BFS DOWN to include all descendants
         const queue = [node.id]
         while (queue.length) {
           const cur = queue.shift()!
@@ -137,7 +143,7 @@ export default function TreeCanvas({
       : undefined
 
   const isFocused = focusState.mode !== 'idle'
-  const isFocusedDecision = selectedNode?.is_decision_point ?? false
+  const focusedDecisionId = selectedNode?.is_decision_point ? selectedNode.id : undefined
 
   return (
     <svg
@@ -209,7 +215,7 @@ export default function TreeCanvas({
         connections={connections}
         focusedNodeIds={focusedNodeIds}
         isFocused={isFocused}
-        isFocusedDecision={isFocusedDecision}
+        focusedDecisionId={focusedDecisionId}
         prunedBranchIds={prunedBranchIds}
         pruneSourceMap={pruneSourceMap}
         growthBeat={growthBeat}
