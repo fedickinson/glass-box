@@ -4,17 +4,16 @@ import { TreeProvider, useTreeContext } from './context/TreeContext'
 import { useTreeKeyboard } from './hooks/useTreeKeyboard'
 import { useGrowthTimer } from './hooks/useGrowthTimer'
 import { useViewportControl } from './hooks/useViewportControl'
-import { useGrowthCamera, GrowthCameraMode } from './hooks/useGrowthCamera'
+import { useGrowthCamera } from './hooks/useGrowthCamera'
 import { ORTHO_PATIENT_CONTEXT, orthopedicsTreeNodes } from './data/orthopedicsTree'
 
 import { transformTree } from './data/transformer'
-import { buildParallelAnimationSequence } from './data/buildParallelAnimationSequence'
 import { computeSynthesis } from './data/computeSynthesis'
-import { GrowthPlaybackState, AnimationBeat } from './types/tree'
+import { GrowthPlaybackState, AnimationBeat, GrowthSpeedSetting } from './types/tree'
 import TreeViewport, { TreeViewportHandle } from './components/tree/TreeViewport'
 import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
-import GrowthControls from './components/tree/GrowthControls'
+import GrowthPreStart from './components/tree/GrowthPreStart'
 import NodeDetail from './components/tree/NodeDetail'
 import BranchConclusionPanel from './components/tree/BranchConclusionPanel'
 import { TerminalVariant, deriveTerminalVariant } from './components/tree/TerminalCard'
@@ -26,28 +25,40 @@ import { ShieldIcon } from './components/shared/Icons'
 const POSITIONED_TREE = transformTree(orthopedicsTreeNodes)
 
 // ─── Inner layout ────────────────────────────────────────────────────────────
-function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
+function OrthoLayout({ reasoningMode = false, speed = 'medium' }: { reasoningMode?: boolean; speed?: GrowthSpeedSetting }) {
   const { state, dispatch } = useTreeContext()
   const viewportRef = useRef<TreeViewportHandle>(null)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
-  const [cameraMode, setCameraMode] = useState<GrowthCameraMode>(reasoningMode ? 'overview' : 'follow')
+  const cameraMode = reasoningMode ? 'overview' : 'follow'
   const [synthesisPhase, setSynthesisPhase] = useState<'pre' | 'generating' | 'loading' | 'revealed'>('pre')
   const [synthesisPanelOpen, setSynthesisPanelOpen] = useState(true)
   const [headerOpen, setHeaderOpen] = useState(true)
   const prevGrowthMode = useRef<string>('idle')
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Track growth → idle transition to trigger synthesis reveal
+  // Enter pre_start immediately on mount in reasoning mode
+  useEffect(() => {
+    if (reasoningMode) {
+      dispatch({ type: 'ENTER_REASONING_PRE_START' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Track growth playback transitions to trigger synthesis phase changes
   useEffect(() => {
     const prev = prevGrowthMode.current
     const curr = state.growth.mode
     prevGrowthMode.current = curr
 
-    if (prev === 'idle' && curr !== 'idle') {
-      // Growth just started
+    const playbackModes = new Set(['playing', 'paused_at_decision', 'paused_manual', 'paused_exploring'])
+    const wasPlayback = playbackModes.has(prev)
+    const isPlayback = playbackModes.has(curr)
+
+    if (!wasPlayback && isPlayback) {
+      // Playback just started (from pre_start or idle)
       if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
       setSynthesisPhase('generating')
-    } else if (prev !== 'idle' && curr === 'idle') {
+    } else if (wasPlayback && curr === 'idle') {
       // Growth just completed — pan to terminal hypothesis nodes while synthesis slides in
       const terminalIds = state.tree.nodes.filter(n => n.isTerminal).map(n => n.id)
       const nodesSnapshot = state.tree.nodes
@@ -83,12 +94,14 @@ function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
 
   const currentGrowthBeat = useMemo((): AnimationBeat | null => {
     if (state.growth.mode === 'idle') return null
+    // During pre_start, show no nodes (empty visibility set)
+    if (state.growth.mode === 'pre_start') return { visibleIds: [], activeBranchIds: null, pauseMs: 0 }
     const g = state.growth as { beatIndex: number; sequence: AnimationBeat[] }
     return g.sequence[g.beatIndex] ?? null
   }, [state.growth])
 
   const shieldStats = useMemo(() => {
-    if (state.growth.mode === 'idle') {
+    if (state.growth.mode === 'idle' || state.growth.mode === 'pre_start') {
       // All nodes visible
       const allNodes = state.tree.nodes
       const checkedRevealed = allNodes.filter(n => n.shield_checked)
@@ -124,10 +137,8 @@ function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
     [state.tree, state.prunedBranchIds, state.annotations, state.pinnedBranchId, state.pruneSourceMap]
   )
 
-  const cinematicAutoPlay = reasoningMode && (cameraMode === 'overview' || cameraMode === 'parallel')
-
   useTreeKeyboard(state.focusState, state.growth, dispatch)
-  useGrowthTimer(state.growth, dispatch, cinematicAutoPlay)
+  useGrowthTimer(state.growth, dispatch)
   useViewportControl(state.focusState, state.tree, viewportRef)
   useGrowthCamera(state.growth, state.tree, cameraMode, viewportRef)
 
@@ -162,6 +173,17 @@ function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
       >
         {/* Always-visible row: toggle + identity + next patient */}
         <div className="flex items-center gap-0">
+          {/* Logo */}
+          <div className="flex items-center pr-4 mr-3" style={{ borderRight: '1px solid rgba(0,0,0,0.09)' }}>
+            <video
+              src="/logo.mp4"
+              autoPlay
+              muted
+              playsInline
+              className="w-14 h-14 object-contain"
+            />
+          </div>
+
           {/* Collapse toggle — left side */}
           <button
             onClick={() => setHeaderOpen(o => !o)}
@@ -381,7 +403,7 @@ function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
                 const nodeId = focusBranch.branchNodeIds[index]
                 if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
               }}
-              onFocusBranch={branchId => dispatch({ type: 'FOCUS_BRANCH', branchId })}
+              onFocusBranch={(branchId, startNodeId) => dispatch({ type: 'FOCUS_BRANCH', branchId, startNodeId })}
               onAddAnnotation={(nodeId, type, content) =>
                 dispatch({ type: 'ADD_ANNOTATION', nodeId, annotationType: type, content })
               }
@@ -391,55 +413,14 @@ function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
             />
           )}
 
-          {/* Legend — shifts up when GrowthControls bar is visible */}
-          <TreeLegend bottomOffset={state.growth.mode !== 'idle' ? 72 : 16} />
+          {/* Legend */}
+          <TreeLegend bottomOffset={16} />
 
-          {/* Start Reasoning — only shown on the /reasoning route */}
-          {reasoningMode && state.growth.mode === 'idle' && (
-            <button
-              onClick={() => dispatch({
-                type: 'START_GROWTH',
-                sequence: cameraMode === 'parallel' ? buildParallelAnimationSequence() : undefined,
-              })}
-              style={{
-                position: 'absolute',
-                bottom: 16,
-                right: 16,
-                zIndex: 10,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                padding: '6px 16px',
-                borderRadius: 20,
-                background: 'rgba(255,255,255,0.88)',
-                backdropFilter: 'blur(18px)',
-                WebkitBackdropFilter: 'blur(18px)',
-                border: '1px solid rgba(59,125,216,0.28)',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)',
-                color: '#1A52A8',
-                cursor: 'pointer',
-                transition: 'background 140ms ease-out',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.96)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.88)')}
-            >
-              ▶ Start reasoning
-            </button>
-          )}
-
-          {/* GrowthControls */}
-          {state.growth.mode !== 'idle' && (
-            <GrowthControls
-              growth={state.growth}
-              totalNodes={state.tree.nodes.length}
-              cameraMode={cameraMode}
-              onCameraMode={setCameraMode}
-              onPlay={() => dispatch({ type: 'RESUME_GROWTH' })}
-              onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
-              onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
-              onStepBackward={() => dispatch({ type: 'STEP_BACKWARD' })}
-              onSkipToEnd={() => dispatch({ type: 'SKIP_TO_END' })}
-              cinematicAutoPlay={cinematicAutoPlay}
+          {/* Pre-start overlay — shown when entering reasoning mode before growth begins */}
+          {state.growth.mode === 'pre_start' && (
+            <GrowthPreStart
+              speed={speed}
+              onStart={() => dispatch({ type: 'START_GROWTH', speed })}
             />
           )}
         </div>
@@ -449,7 +430,7 @@ function OrthoLayout({ reasoningMode = false }: { reasoningMode?: boolean }) {
         {/* ── Synthesis panel — full height, collapsible, 35% when open, 52px tab when closed ── */}
         <div
           style={{
-            width: (cinematicAutoPlay && state.growth.mode !== 'idle')
+            width: (reasoningMode && state.growth.mode !== 'idle')
               ? 0
               : synthesisPanelOpen ? '35%' : 52,
             overflow: 'hidden',
@@ -595,11 +576,11 @@ export default function OrthoApp() {
   )
 }
 
-// ─── Reasoning route — cinematic generation flow, synthesis collapses ──────────
-export function OrthoReasoningApp() {
+// ─── Reasoning route — accepts speed from URL (slow/medium/fast) ──────────────
+export function OrthoReasoningApp({ speed = 'medium' }: { speed?: GrowthSpeedSetting }) {
   return (
     <TreeProvider initialTree={POSITIONED_TREE}>
-      <OrthoLayout reasoningMode />
+      <OrthoLayout reasoningMode speed={speed} />
     </TreeProvider>
   )
 }

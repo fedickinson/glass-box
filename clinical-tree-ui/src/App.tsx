@@ -4,7 +4,7 @@ import { TreeProvider, useTreeContext } from './context/TreeContext'
 import { useTreeKeyboard } from './hooks/useTreeKeyboard'
 import { useGrowthTimer } from './hooks/useGrowthTimer'
 import { useViewportControl } from './hooks/useViewportControl'
-import { useGrowthCamera, GrowthCameraMode } from './hooks/useGrowthCamera'
+import { useGrowthCamera } from './hooks/useGrowthCamera'
 import { MOCK_PATIENT_CONTEXT, mockTreeNodes } from './data/mockTree'
 import { transformTree } from './data/transformer'
 import { computeSynthesis } from './data/computeSynthesis'
@@ -12,7 +12,6 @@ import { GrowthPlaybackState, AnimationBeat } from './types/tree'
 import TreeViewport, { TreeViewportHandle } from './components/tree/TreeViewport'
 import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
-import GrowthControls from './components/tree/GrowthControls'
 import NodeDetail from './components/tree/NodeDetail'
 import BranchConclusionPanel from './components/tree/BranchConclusionPanel'
 import { TerminalVariant, deriveTerminalVariant } from './components/tree/TerminalCard'
@@ -30,7 +29,7 @@ function AppLayout() {
   const viewportRef = useRef<TreeViewportHandle>(null)
   const [showBaseline, setShowBaseline] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
-  const [cameraMode, setCameraMode] = useState<GrowthCameraMode>('follow')
+  const cameraMode = 'follow' as const
 
   // Canvas bounds — drives zoom clamping in TreeViewport
   const canvasDims = useMemo(() => {
@@ -45,14 +44,14 @@ function AppLayout() {
 
   // Current animation beat — used for TreeCanvas visibility and shieldStats
   const currentGrowthBeat = useMemo((): AnimationBeat | null => {
-    if (state.growth.mode === 'idle') return null
+    if (state.growth.mode === 'idle' || state.growth.mode === 'pre_start') return null
     const g = state.growth as { beatIndex: number; sequence: AnimationBeat[] }
     return g.sequence[g.beatIndex] ?? null
   }, [state.growth])
 
   // Shield stats — counts revealed checks and violations for the status badge
   const shieldStats = useMemo(() => {
-    if (state.growth.mode === 'idle') {
+    if (state.growth.mode === 'idle' || state.growth.mode === 'pre_start') {
       const allNodes = state.tree.nodes
       const checkedRevealed = allNodes.filter(n => n.shield_checked)
       const violationsRevealed = allNodes.filter(n => n.shield_severity)
@@ -406,7 +405,7 @@ function AppLayout() {
                     const nodeId = focusBranch.branchNodeIds[index]
                     if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
                   }}
-                  onFocusBranch={branchId => dispatch({ type: 'FOCUS_BRANCH', branchId })}
+                  onFocusBranch={(branchId, startNodeId) => dispatch({ type: 'FOCUS_BRANCH', branchId, startNodeId })}
                   onAddAnnotation={(nodeId, type, content) =>
                     dispatch({ type: 'ADD_ANNOTATION', nodeId, annotationType: type, content })
                   }
@@ -416,20 +415,6 @@ function AppLayout() {
               {/* Legend */}
               <TreeLegend />
 
-              {/* GrowthControls — shown during active growth playback */}
-              {state.growth.mode !== 'idle' && (
-                <GrowthControls
-                  growth={state.growth}
-                  totalNodes={state.tree.nodes.length}
-                  cameraMode={cameraMode}
-                  onCameraMode={setCameraMode}
-                  onPlay={() => dispatch({ type: 'RESUME_GROWTH' })}
-                  onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
-                  onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
-                  onStepBackward={() => dispatch({ type: 'STEP_BACKWARD' })}
-                  onSkipToEnd={() => dispatch({ type: 'SKIP_TO_END' })}
-                />
-              )}
             </>
           )}
         </div>
