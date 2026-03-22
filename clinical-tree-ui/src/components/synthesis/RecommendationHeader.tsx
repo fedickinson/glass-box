@@ -1,4 +1,4 @@
-/** RecommendationHeader — diagnosis headline, confidence, hypothesis breakdown */
+/** RecommendationHeader — diagnosis headline and confidence badge */
 import React from 'react'
 import { SynthesisData, FocusState } from '../../types/tree'
 
@@ -6,13 +6,6 @@ const CONFIDENCE_COLORS = {
   high: { text: '#1A6E3C', bg: 'rgba(26,110,60,0.08)', border: 'rgba(26,110,60,0.2)' },
   moderate: { text: '#7A5500', bg: 'rgba(212,149,10,0.08)', border: 'rgba(212,149,10,0.22)' },
   low: { text: '#8B2A20', bg: 'rgba(185,50,38,0.08)', border: 'rgba(185,50,38,0.2)' },
-}
-
-interface HypothesisGroup {
-  diagnosis: string
-  count: number
-  branchIds: string[]
-  isPrimary: boolean
 }
 
 interface Props {
@@ -26,36 +19,9 @@ interface Props {
 export default function RecommendationHeader({
   synthesis,
   isPinned,
-  pinnedBranchId,
-  focusState,
-  onDiagnosisGroupClick,
 }: Props) {
   const { recommendation, confidence } = synthesis
   const colorsConf = CONFIDENCE_COLORS[confidence.level]
-
-  // Build hypothesis breakdown from branches
-  const diagnosisMap = new Map<string, HypothesisGroup>()
-  synthesis.branches.forEach(b => {
-    const diag = b.diagnosis ?? 'Undetermined'
-    const existing = diagnosisMap.get(diag)
-    if (existing) {
-      existing.count++
-      existing.branchIds.push(b.branchId)
-    } else {
-      diagnosisMap.set(diag, {
-        diagnosis: diag,
-        count: 1,
-        branchIds: [b.branchId],
-        isPrimary: diag === recommendation.diagnosis,
-      })
-    }
-  })
-
-  const hypotheses = [...diagnosisMap.values()].sort((a, b) => {
-    if (a.isPrimary) return -1
-    if (b.isPrimary) return 1
-    return b.count - a.count
-  })
 
   return (
     <div>
@@ -98,16 +64,46 @@ export default function RecommendationHeader({
           {recommendation.diagnosis}
         </div>
         <div
-          style={{ fontSize: 12.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.58)' }}
+          style={{ fontSize: 12.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.58)', marginBottom: 10 }}
         >
           {recommendation.summary.slice(0, 200)}
           {recommendation.summary.length > 200 ? '…' : ''}
         </div>
 
+        {/* Confidence pill + action line */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{
+            fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em',
+            color: '#1A6E3C', background: 'rgba(26,110,60,0.1)',
+            border: '1px solid rgba(26,110,60,0.22)', borderRadius: 4,
+            padding: '2px 7px', flexShrink: 0,
+          }}>
+            High confidence
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
+            Recommend cardiology consult
+          </span>
+        </div>
+
+        {/* Residual uncertainty callout */}
+        <div style={{
+          padding: '7px 10px',
+          borderRadius: 7,
+          background: 'rgba(212,149,10,0.09)',
+          border: '1px solid rgba(212,149,10,0.25)',
+          marginBottom: isPinned ? 10 : 0,
+        }}>
+          <span style={{ fontSize: 10.5, color: '#7A5500', lineHeight: 1.5 }}>
+            <span style={{ marginRight: 4 }}>⚠</span>
+            <strong>Remaining uncertainty:</strong> NSTEMI was not clinically ruled out — the Shield
+            terminated this path for safety reasons (premature anticoagulation violates ACC/AHA §6.1),
+            not because the diagnosis was excluded. Serial troponin at 3h recommended.
+          </span>
+        </div>
+
         {isPinned && (
           <div
             style={{
-              marginTop: 8,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 5,
@@ -126,175 +122,6 @@ export default function RecommendationHeader({
         )}
       </div>
 
-      {/* Confidence */}
-      <div
-        style={{
-          padding: '11px 14px',
-          borderRadius: 10,
-          background: colorsConf.bg,
-          border: `1px solid ${colorsConf.border}`,
-          marginBottom: 10,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 5,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: colorsConf.text,
-            }}
-          >
-            {confidence.level} confidence
-          </span>
-          <span
-            style={{
-              fontSize: 10.5,
-              fontWeight: 600,
-              color: colorsConf.text,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {confidence.convergingBranches} / {confidence.totalBranches} converge
-          </span>
-        </div>
-        <div
-          style={{
-            height: 4,
-            borderRadius: 2,
-            background: 'rgba(0,0,0,0.08)',
-            overflow: 'hidden',
-            marginBottom: 5,
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              borderRadius: 2,
-              background: colorsConf.text,
-              width: `${confidence.convergenceRatio * 100}%`,
-              transition: 'width 300ms ease-out',
-            }}
-          />
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: 'rgba(0,0,0,0.5)',
-            lineHeight: 1.45,
-            fontStyle: 'italic',
-          }}
-        >
-          {confidence.explanation}
-        </div>
-      </div>
-
-      {/* Hypothesis breakdown */}
-      {hypotheses.length > 1 && (
-        <div style={{ marginBottom: 10 }}>
-          <div
-            style={{
-              fontSize: 8.5,
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'rgba(0,0,0,0.35)',
-              marginBottom: 6,
-            }}
-          >
-            Hypothesis breakdown
-          </div>
-          {hypotheses.map(h => {
-            const ratio = confidence.totalBranches > 0 ? h.count / confidence.totalBranches : 0
-            return (
-              <div
-                key={h.diagnosis}
-                onClick={() => onDiagnosisGroupClick(h.branchIds[0])}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '5px 8px',
-                  borderRadius: 7,
-                  cursor: 'pointer',
-                  background: h.isPrimary ? 'rgba(26,82,168,0.04)' : 'transparent',
-                  marginBottom: 3,
-                  transition: 'background 120ms',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: h.isPrimary ? 600 : 400,
-                      color: h.isPrimary ? '#111' : 'rgba(0,0,0,0.58)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {h.diagnosis}
-                  </div>
-                  <div
-                    style={{
-                      height: 3,
-                      borderRadius: 1.5,
-                      background: 'rgba(0,0,0,0.07)',
-                      marginTop: 3,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: '100%',
-                        borderRadius: 1.5,
-                        background: h.isPrimary ? '#1A52A8' : 'rgba(0,0,0,0.25)',
-                        width: `${ratio * 100}%`,
-                        transition: 'width 300ms ease-out',
-                      }}
-                    />
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: 9.5,
-                    fontWeight: 600,
-                    color: h.isPrimary ? '#1A52A8' : 'rgba(0,0,0,0.38)',
-                    whiteSpace: 'nowrap',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {h.count} of {confidence.totalBranches}
-                </span>
-                {h.isPrimary && (
-                  <span
-                    style={{
-                      fontSize: 8,
-                      padding: '1px 5px',
-                      borderRadius: 4,
-                      background: 'rgba(26,82,168,0.1)',
-                      color: '#1A52A8',
-                      fontWeight: 700,
-                      letterSpacing: '0.06em',
-                      flexShrink: 0,
-                    }}
-                  >
-                    PRIMARY
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
