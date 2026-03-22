@@ -3,3 +3,6 @@
 __pycache__/
 .ipynb_checkpoints/
 .gstack/
+
+# ignore node_modules and build artifacts
+./clinical-tree-ui/node_modules/
