@@ -25,7 +25,7 @@ const PROMPT_TEXT =
 const HEADLINE_MESSAGES = [
   "When uncertainty is high, agents can have very different outputs",
   "Different reasoning paths can lead to different conclusions",
-  "Interpreting outputs requires understanding the reasoning behind them",
+  "Interpretabiliy needs <i>comparable</i> reasoning",
 ];
 
 const BEAM_CONFIGS = [
