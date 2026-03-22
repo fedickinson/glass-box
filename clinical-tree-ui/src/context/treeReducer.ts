@@ -59,6 +59,31 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       }
     }
 
+    case 'FOCUS_HYPOTHESIS': {
+      return {
+        ...state,
+        focusState: {
+          mode: 'hypothesis_focused',
+          diagnosis: action.diagnosis,
+          branchIds: action.branchIds,
+          highlightedNodeId: null,
+        },
+      }
+    }
+
+    case 'PEEK_NODE': {
+      // Only valid within hypothesis_focused — pans to a node while keeping all
+      // hypothesis branches highlighted. Has no effect in other focus modes.
+      if (state.focusState.mode !== 'hypothesis_focused') return state
+      return {
+        ...state,
+        focusState: {
+          ...state.focusState,
+          highlightedNodeId: action.nodeId,
+        },
+      }
+    }
+
     case 'NAVIGATE_NEXT': {
       if (state.focusState.mode !== 'branch_focused') return state
       const { branchNodeIds, selectedNodeIndex } = state.focusState

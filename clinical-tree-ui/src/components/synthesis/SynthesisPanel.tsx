@@ -114,7 +114,7 @@ function TerminatedCard({ violation, onViewInTree }: { violation: SafetyViolatio
               {violation.violation}
             </div>
             <div style={{ fontSize: 10, color: 'rgba(0,0,0,0.38)', marginTop: 6, fontStyle: 'italic' }}>
-              This is a safety termination, not a clinical exclusion. NSTEMI remains a differential until ruled out by serial troponin.
+              This is a safety termination, not a clinical exclusion. The diagnosis remains a differential until explicitly ruled out.
             </div>
           </div>
         </div>
@@ -155,6 +155,8 @@ export default function SynthesisPanel({
   onRemoveAnnotation,
 }: Props) {
   const { hypothesisGroups } = synthesis
+  const primaryGroup = hypothesisGroups.find(g => g.tag === 'PRIMARY') ?? null
+  const [primaryExpanded, setPrimaryExpanded] = useState(false)
   const [expandedDiagnosis, setExpandedDiagnosis] = useState<string | null>(null)
   const [clinicalAssessment, setClinicalAssessment] = useState('')
   const [signOffState, setSignOffState] = useState<'idle' | 'confirming' | 'signed'>('idle')
@@ -182,20 +184,70 @@ export default function SynthesisPanel({
         className="flex-1 overflow-y-auto"
         style={{ padding: '22px 20px' }}
       >
-        {/* Recommendation + confidence */}
+        {/* Most Likely Path label */}
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
+          textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)',
+          marginBottom: 8,
+        }}>
+          Most Supported Diagnosis
+        </div>
+
+        {/* Recommendation box — clickable to expand primary reasoning detail */}
         <RecommendationHeader
           synthesis={synthesis}
           isPinned={!!pinnedBranchId}
           pinnedBranchId={pinnedBranchId}
           focusState={focusState}
           onDiagnosisGroupClick={onBranchClick}
+          primaryExpanded={primaryExpanded}
+          onTogglePrimary={() => {
+            const isOpening = !primaryExpanded
+            setPrimaryExpanded(p => !p)
+            if (isOpening && primaryGroup) {
+              onHypothesisClick(primaryGroup.diagnosis, primaryGroup.branchIds)
+            }
+          }}
         />
+
+        {/* Primary reasoning accordion — visually attached to recommendation box */}
+        {primaryExpanded && primaryGroup && (
+          <HypothesisCard
+            group={primaryGroup}
+            isExpanded={true}
+            attachedToHeader={true}
+            onToggleExpand={() => setPrimaryExpanded(false)}
+            focusState={focusState}
+            annotations={annotations.filter(a =>
+              primaryGroup.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
+            )}
+            pinnedBranchId={pinnedBranchId}
+            onHypothesisClick={onHypothesisClick}
+            onBranchClick={onBranchClick}
+            onNodeClick={onNodeClick}
+            onEvidenceNodeClick={onEvidenceNodeClick}
+            onNodeHoverEnter={onNodeHoverEnter}
+            onNodeHoverLeave={onNodeHoverLeave}
+            onPruneBranch={onPruneBranch}
+            onAnnotate={onAnnotate}
+            onRemoveAnnotation={onRemoveAnnotation}
+          />
+        )}
 
         <Divider />
 
-        {/* Hypothesis cards — one compact card per unique terminal diagnosis */}
+        {/* Hypothesis cards — one compact card per unique terminal diagnosis (PRIMARY handled above) */}
         <div>
-          {hypothesisGroups.map(group => (
+          {hypothesisGroups.filter(g => g.tag !== 'PRIMARY').length > 0 && (
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
+              textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)',
+              marginBottom: 8,
+            }}>
+              Additional Valid Diagnoses
+            </div>
+          )}
+          {hypothesisGroups.filter(g => g.tag !== 'PRIMARY').map(group => (
             <HypothesisCard
               key={group.diagnosis}
               group={group}
@@ -240,7 +292,7 @@ export default function SynthesisPanel({
         <Divider />
         <div>
           <div style={{
-            fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em',
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
             textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)', marginBottom: 8,
           }}>
             Clinical Assessment

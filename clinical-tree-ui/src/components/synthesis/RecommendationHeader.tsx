@@ -14,11 +14,15 @@ interface Props {
   pinnedBranchId: string | null
   focusState: FocusState
   onDiagnosisGroupClick: (branchId: string) => void
+  primaryExpanded?: boolean
+  onTogglePrimary?: () => void
 }
 
 export default function RecommendationHeader({
   synthesis,
   isPinned,
+  primaryExpanded,
+  onTogglePrimary,
 }: Props) {
   const { recommendation, confidence } = synthesis
   const colorsConf = CONFIDENCE_COLORS[confidence.level]
@@ -27,29 +31,45 @@ export default function RecommendationHeader({
     <div>
       {/* Recommendation section */}
       <div
+        onClick={onTogglePrimary}
         style={{
           padding: '16px 18px',
           background:
             'linear-gradient(148deg, rgba(242,248,255,0.7) 0%, rgba(232,242,255,0.5) 100%)',
-          borderRadius: 14,
+          borderRadius: primaryExpanded ? '14px 14px 0 0' : 14,
           border: '1px solid rgba(26,82,168,0.12)',
           borderTop: '1px solid rgba(255,255,255,0.9)',
+          borderBottom: primaryExpanded ? 'none' : '1px solid rgba(26,82,168,0.12)',
           boxShadow:
             '0 2px 12px rgba(26,82,168,0.07), inset 0 1px 0 rgba(255,255,255,1)',
-          marginBottom: 10,
+          marginBottom: primaryExpanded ? 0 : 10,
+          cursor: onTogglePrimary ? 'pointer' : 'default',
         }}
       >
-        <div
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            color: '#1A52A8',
-            marginBottom: 6,
-          }}
-        >
-          Recommendation
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: '#1A52A8',
+            }}
+          >
+            Recommendation
+          </div>
+          {confidence.convergingBranches > 1 && (
+            <span style={{
+              fontSize: 9, fontWeight: 600,
+              color: '#1A52A8',
+              background: 'rgba(26,82,168,0.10)',
+              border: '1px solid rgba(26,82,168,0.22)',
+              borderRadius: 4, padding: '2px 6px',
+              whiteSpace: 'nowrap',
+            }}>
+              {confidence.convergingBranches} of {confidence.totalBranches} paths
+            </span>
+          )}
         </div>
         <div
           style={{
@@ -70,36 +90,42 @@ export default function RecommendationHeader({
           {recommendation.summary.length > 200 ? '…' : ''}
         </div>
 
-        {/* Confidence pill + action line */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span style={{
-            fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em',
-            color: '#1A6E3C', background: 'rgba(26,110,60,0.1)',
-            border: '1px solid rgba(26,110,60,0.22)', borderRadius: 4,
-            padding: '2px 7px', flexShrink: 0,
+        {/* Potential next step */}
+        {recommendation.nextStep && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 7,
+            marginBottom: synthesis.safetySummary.violations.length > 0 ? 10 : 0,
           }}>
-            High confidence
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
-            Recommend cardiology consult
-          </span>
-        </div>
+            <span style={{
+              fontSize: 8, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
+              color: '#1A52A8', flexShrink: 0, marginTop: 2,
+            }}>
+              Next step for this diagnosis
+            </span>
+            <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.62)', lineHeight: 1.5 }}>
+              {recommendation.nextStep}
+            </span>
+          </div>
+        )}
 
-        {/* Residual uncertainty callout */}
-        <div style={{
-          padding: '7px 10px',
-          borderRadius: 7,
-          background: 'rgba(212,149,10,0.09)',
-          border: '1px solid rgba(212,149,10,0.25)',
-          marginBottom: isPinned ? 10 : 0,
-        }}>
-          <span style={{ fontSize: 10.5, color: '#7A5500', lineHeight: 1.5 }}>
-            <span style={{ marginRight: 4 }}>⚠</span>
-            <strong>Remaining uncertainty:</strong> NSTEMI was not clinically ruled out — the Shield
-            terminated this path for safety reasons (premature anticoagulation violates ACC/AHA §6.1),
-            not because the diagnosis was excluded. Serial troponin at 3h recommended.
-          </span>
-        </div>
+        {/* Residual uncertainty callout — only shown when shield violations exist */}
+        {synthesis.safetySummary.violations.length > 0 && (
+          <div style={{
+            padding: '7px 10px',
+            borderRadius: 7,
+            background: 'rgba(212,149,10,0.09)',
+            border: '1px solid rgba(212,149,10,0.25)',
+            marginBottom: isPinned ? 10 : 0,
+          }}>
+            <span style={{ fontSize: 10.5, color: '#7A5500', lineHeight: 1.5 }}>
+              <span style={{ marginRight: 4 }}>⚠</span>
+              <strong>Remaining uncertainty:</strong> {synthesis.safetySummary.violations.length} path
+              {synthesis.safetySummary.violations.length > 1 ? 's were' : ' was'} terminated by the
+              Shield model for safety reasons — not because those diagnoses were clinically excluded.
+              Review terminated paths before committing.
+            </span>
+          </div>
+        )}
 
         {isPinned && (
           <div
@@ -118,6 +144,26 @@ export default function RecommendationHeader({
             }}
           >
             ★ Doctor concurs
+          </div>
+        )}
+
+        {/* Expand / collapse affordance */}
+        {onTogglePrimary && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            marginTop: 10, color: 'rgba(26,82,168,0.55)',
+          }}>
+            <span style={{
+              fontSize: 9, fontWeight: 600, letterSpacing: '0.04em',
+            }}>
+              {primaryExpanded ? 'Hide reasoning' : 'View reasoning'}
+            </span>
+            <span style={{
+              fontSize: 8,
+              display: 'inline-block',
+              transform: primaryExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 180ms ease-out',
+            }}>▾</span>
           </div>
         )}
       </div>

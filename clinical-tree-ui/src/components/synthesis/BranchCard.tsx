@@ -13,13 +13,12 @@ const BRANCH_LABEL_COLORS: Record<string, string> = {
 
 function branchLabel(branchId: string, isPrimary: boolean): string {
   if (isPrimary) return 'Primary path'
-  const map: Record<string, string> = {
-    branch_a: 'GERD hypothesis',
-    branch_b: 'Bayesian path',
-    branch_c: 'PE hypothesis',
-    branch_d: 'NSTEMI path',
-  }
-  return map[branchId] ?? `Branch ${branchId}`
+  // Convert kebab-case branch IDs to readable labels: "branch-ulnar-a" → "Ulnar A path"
+  return branchId
+    .replace(/^branch[-_]?/, '')
+    .split(/[-_]/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ') + ' path'
 }
 
 interface Props {

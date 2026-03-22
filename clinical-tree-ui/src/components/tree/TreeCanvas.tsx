@@ -1,9 +1,10 @@
 /** TreeCanvas — SVG element containing all nodes and connections */
-import React from 'react'
-import { PositionedNode, Connection, Convergence, FocusState, DoctorAnnotation, ViewMode } from '../../types/tree'
-import { NODE_W, NODE_H, NODE_H_DECISION } from '../../data/transformer'
+import React, { useMemo } from 'react'
+import { PositionedNode, Connection, Convergence, FocusState, DoctorAnnotation, ViewMode, PruneSource } from '../../types/tree'
+import { buildBranchPath } from '../../data/transformer'
 import TreeNode, { FocusRole } from './TreeNode'
 import TreeConnections from './TreeConnections'
+import TerminalCard, { TerminalVariant } from './TerminalCard'
 
 interface Props {
   nodes: PositionedNode[]
@@ -23,20 +24,39 @@ interface Props {
 
 const CANVAS_PAD = 40
 
+function getTerminalVariant(
+  node: PositionedNode,
+  isPruned: boolean,
+  pruneSource: PruneSource | undefined,
+  convergences: Convergence[]
+): TerminalVariant {
+  if (isPruned && pruneSource === 'shield') return 'shield_killed'
+  if (isPruned) return 'doctor_pruned'
+  if (convergences.some(c => c.terminalNodeIds.includes(node.id) && c.terminalNodeIds.length > 1)) return 'converging'
+  return 'divergent'
+}
+
 function computeFocusRole(
   node: PositionedNode,
   focusState: FocusState,
-  selectedNode: PositionedNode | undefined
+  selectedNode: PositionedNode | undefined,
+  focusedNodeIds: Set<string> | null
 ): FocusRole {
   if (focusState.mode === 'idle') return 'none'
+
+  if (focusState.mode === 'hypothesis_focused') {
+    if (focusState.highlightedNodeId && node.id === focusState.highlightedNodeId) return 'selected'
+    return focusedNodeIds?.has(node.id) ? 'on_focused_branch' : 'dimmed'
+  }
+
+  // branch_focused from here
   // Decision points are the pivot where branches diverge — don't dim anything
   // when one is selected, because all outgoing paths are equally valid.
   if (selectedNode?.is_decision_point) {
     return node.id === focusState.selectedNodeId ? 'selected' : 'none'
   }
-  const { branchNodeIds, selectedNodeId } = focusState
-  if (node.id === selectedNodeId) return 'selected'
-  if (branchNodeIds.includes(node.id)) return 'on_focused_branch'
+  if (node.id === focusState.selectedNodeId) return 'selected'
+  if (focusedNodeIds?.has(node.id)) return 'on_focused_branch'
   return 'dimmed'
 }
 
@@ -57,9 +77,30 @@ export default function TreeCanvas({
 }: Props) {
   if (nodes.length === 0) return null
 
-  // Compute SVG canvas dimensions from node positions
+  // Compute the set of highlighted node IDs for the current focus mode.
+  // For branch_focused: includes ancestors + branch nodes (from branchNodeIds).
+  // For hypothesis_focused: union of all paths for each branch in the group.
+  const focusedNodeIds = useMemo((): Set<string> | null => {
+    if (focusState.mode === 'branch_focused') {
+      return new Set(focusState.branchNodeIds)
+    }
+    if (focusState.mode === 'hypothesis_focused') {
+      const ids = new Set<string>()
+      for (const branchId of focusState.branchIds) {
+        buildBranchPath(branchId, nodes).forEach(id => ids.add(id))
+      }
+      return ids
+    }
+    return null
+  }, [focusState, nodes])
+
+  // Compute SVG canvas dimensions from node positions.
+  // Add extra height for shield violation callouts (callout box is ~100px tall).
+  const hasViolationCallout = nodes.some(
+    n => n.shield_severity && !n.isTerminal && prunedBranchIds.has(n.branch_id) && pruneSourceMap.get(n.branch_id) === 'shield'
+  )
   const maxX = Math.max(...nodes.map(n => n.x + n.width)) + CANVAS_PAD
-  const maxY = Math.max(...nodes.map(n => n.y + n.height)) + CANVAS_PAD
+  const maxY = Math.max(...nodes.map(n => n.y + n.height)) + CANVAS_PAD + (hasViolationCallout ? 120 : 0)
 
   // Group annotations by nodeId for quick lookup
   const annotationsByNode = new Map<string, DoctorAnnotation[]>()
@@ -82,6 +123,8 @@ export default function TreeCanvas({
     focusState.mode === 'branch_focused' && focusState.selectedNodeId
       ? nodes.find(n => n.id === focusState.selectedNodeId)
       : undefined
+
+  const isFocused = focusState.mode !== 'idle'
 
   return (
     <svg
@@ -121,89 +164,100 @@ export default function TreeCanvas({
           <stop offset="100%" stopColor="rgb(254,225,220)" stopOpacity="0.94" />
         </linearGradient>
 
+        {/* Assessment start node fill — richer, deeper blue than standard thought nodes */}
+        <linearGradient id="fill-assessment" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(220,237,255)" stopOpacity="0.98" />
+          <stop offset="100%" stopColor="rgb(196,222,255)" stopOpacity="0.95" />
+        </linearGradient>
+
+        {/* Compliance check node fill — neutral slate, result communicated by badge not card color */}
+        <linearGradient id="fill-compliance" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgb(248,249,252)" stopOpacity="0.98" />
+          <stop offset="100%" stopColor="rgb(238,241,248)" stopOpacity="0.95" />
+        </linearGradient>
+
         {/* Per-node clip paths for rounded left accent border.
-            Coordinates are in SVG root space — the accent rect inside a
-            translated <g> maps to the same root coords, so clipping works. */}
-        {nodes.map(node => {
-          const h = node.is_decision_point ? NODE_H_DECISION : NODE_H
-          return (
-            <clipPath key={node.id} id={`clip-${node.id}`}>
-              <rect
-                x={node.x}
-                y={node.y}
-                width={NODE_W}
-                height={h}
-                rx={12}
-              />
-            </clipPath>
-          )
-        })}
+            Use node.height directly — it already accounts for decision/compliance variants. */}
+        {nodes.map(node => (
+          <clipPath key={node.id} id={`clip-${node.id}`}>
+            <rect
+              x={node.x}
+              y={node.y}
+              width={node.width}
+              height={node.height}
+              rx={12}
+            />
+          </clipPath>
+        ))}
       </defs>
 
       {/* ── Connections (behind nodes) ── */}
       <TreeConnections
         connections={connections}
-        focusState={focusState}
+        focusedNodeIds={focusedNodeIds}
+        isFocused={isFocused}
         prunedBranchIds={prunedBranchIds}
+        pruneSourceMap={pruneSourceMap}
         growthCursor={growthCursor}
       />
 
-      {/* ── Convergence badges — small pill on each terminal node in a convergence group ── */}
-      {convergences.map(conv =>
-        conv.terminalNodeIds.map(id => {
-          const node = nodes.find(n => n.id === id)
-          if (!node) return null
-          const bx = node.x + node.width + 6
-          const by = node.y + node.height / 2
-          return (
-            <g key={`conv-${conv.diagnosis}-${id}`}>
-              {/* Pill background */}
-              <rect
-                x={bx}
-                y={by - 9}
-                width={62}
-                height={18}
-                rx={9}
-                fill="var(--node-tool-fill)"
-                stroke="var(--conn-convergence-color)"
-                strokeWidth={1.2}
-                strokeOpacity={0.7}
-              />
-              <text
-                x={bx + 31}
-                y={by + 4.5}
-                textAnchor="middle"
-                style={{
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  fill: 'var(--conn-convergence-color)',
-                  letterSpacing: '0.06em',
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                }}
-              >
-                ↗ CONVERGES
-              </text>
-            </g>
-          )
-        })
-      )}
+      {/* ── Convergence dot: marks where fan-in lines terminate on the assessment node ── */}
+      {(() => {
+        const fanTarget = connections.find(c => c.isPreflightFanIn)
+        const targetNode = fanTarget ? nodes.find(n => n.id === fanTarget.targetId) : null
+        if (!targetNode) return null
+        const cx = targetNode.x
+        const cy = targetNode.y + targetNode.height / 2
+        return (
+          <g>
+            {/* Outer glow ring */}
+            <circle cx={cx} cy={cy} r={9} fill="rgba(26,95,180,0.08)" />
+            {/* Inner filled dot */}
+            <circle cx={cx} cy={cy} r={4.5} fill="#1A5FB4" fillOpacity={0.7} />
+            {/* Crisp center */}
+            <circle cx={cx} cy={cy} r={2} fill="#fff" fillOpacity={0.9} />
+          </g>
+        )
+      })()}
+
 
       {/* ── Nodes ── */}
-      {orderedNodes.map(node => (
-        <TreeNode
-          key={node.id}
-          node={node}
-          focusRole={computeFocusRole(node, focusState, selectedNode)}
-          isPruned={prunedBranchIds.has(node.branch_id)}
-          pruneSource={pruneSourceMap.get(node.branch_id)}
-          isVisible={(nodeRevealIndex.get(node.id) ?? 0) <= growthCursor}
-          isDecisionAutoPaused={node.id === decisionAutoPausedNodeId}
-          isHovered={hoveredNodeId === node.id}
-          annotations={annotationsByNode.get(node.id) ?? []}
-          viewMode={viewMode}
-          onClick={() => onNodeClick(node.id)}
-        />
-      ))}
+      {orderedNodes.map(node => {
+        const focusRole = computeFocusRole(node, focusState, selectedNode, focusedNodeIds)
+        const isPruned = prunedBranchIds.has(node.branch_id)
+        const pruneSource = pruneSourceMap.get(node.branch_id)
+        const isVisible = (nodeRevealIndex.get(node.id) ?? 0) <= growthCursor
+
+        if (node.isTerminal) {
+          return (
+            <TerminalCard
+              key={node.id}
+              node={node}
+              variant={getTerminalVariant(node, isPruned, pruneSource, convergences)}
+              convergences={convergences}
+              focusRole={focusRole}
+              isVisible={isVisible}
+              onClick={() => onNodeClick(node.id)}
+            />
+          )
+        }
+
+        return (
+          <TreeNode
+            key={node.id}
+            node={node}
+            focusRole={focusRole}
+            isPruned={isPruned}
+            pruneSource={pruneSource}
+            isVisible={isVisible}
+            isDecisionAutoPaused={node.id === decisionAutoPausedNodeId}
+            isHovered={hoveredNodeId === node.id}
+            annotations={annotationsByNode.get(node.id) ?? []}
+            viewMode={viewMode}
+            onClick={() => onNodeClick(node.id)}
+          />
+        )
+      })}
     </svg>
   )
 }

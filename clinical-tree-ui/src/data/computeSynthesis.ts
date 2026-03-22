@@ -8,9 +8,14 @@ import {
   DoctorAnnotation,
   SynthesisData,
   BranchSummary,
+  HypothesisGroup,
+  EvidenceEntry,
   NodeSummary,
   RejectedPath,
   PruneSource,
+  SafetyCheck,
+  SafetyViolation,
+  SafetySummary,
 } from '../types/tree'
 import { buildBranchPath } from './transformer'
 
@@ -100,8 +105,9 @@ export function computeSynthesis(
       terminalDiag === primaryDiagnosis && branchId !== 'primary' ? primaryDiagnosis : null
 
     // Node summaries: tool calls, citations, decision points, terminal
+    // Compliance check nodes are excluded — they belong in Safety & Compliance only
     const nodeSummaries: NodeSummary[] = ownNodes
-      .filter(n => n.type === 'tool' || n.type === 'citation' || n.is_decision_point || n.diagnosis !== null)
+      .filter(n => !n.is_compliance_check && (n.type === 'tool' || n.type === 'citation' || n.is_decision_point || n.diagnosis !== null))
       .map(n => ({
         nodeId: n.id,
         type: n.type,
@@ -110,6 +116,7 @@ export function computeSynthesis(
         source: n.source ?? null,
         isKeyStep: n.is_decision_point || n.diagnosis !== null || n.type === 'tool',
         shieldFlag: n.shield_severity ?? null,
+        isDiagnosis: n.diagnosis !== null,
       }))
 
     // Narrative from first thought node content
@@ -117,8 +124,8 @@ export function computeSynthesis(
     const toolNodes = ownNodes.filter(n => n.type === 'tool')
     let narrative = firstThought?.content.slice(0, 180) ?? ''
     if (firstThought && firstThought.content.length > 180) narrative += '…'
-    if (toolNodes.length > 0 && branchId === 'primary') {
-      narrative = `Sequential cardiac evaluation: risk stratification, drug interaction check, TIMI scoring. ${terminalDiag ? 'Concluded: ' + terminalDiag + '.' : ''}`
+    if (!narrative && toolNodes.length > 0 && terminalDiag) {
+      narrative = `Referenced ${toolNodes.length} source${toolNodes.length > 1 ? 's' : ''} during evaluation. Concluded: ${terminalDiag}.`
     }
     if (!narrative && terminalDiag) narrative = `Analysis concludes: ${terminalDiag}.`
 
@@ -157,6 +164,123 @@ export function computeSynthesis(
     return 0
   })
 
+  // --- Hypothesis groups ---
+  // Group active branches by terminal diagnosis. Each group becomes one card in
+  // the synthesis panel; convergence (multiple branches → same dx) is the confidence signal.
+  const hypothesisGroups: HypothesisGroup[] = []
+  for (const [diagnosis, diagBranchIds] of diagnosisGroups) {
+    const groupBranches = branches.filter(b => diagBranchIds.includes(b.branchId))
+    const isPrimary = diagnosis === primaryDiagnosis
+    const tag: 'PRIMARY' | 'DIVERGENT' | 'UNLIKELY' =
+      isPrimary ? 'PRIMARY' :
+      diagBranchIds.length === 1 ? 'UNLIKELY' :
+      'DIVERGENT'
+
+    let rationale: string
+    if (isPrimary && diagBranchIds.length > 1) {
+      rationale = `${diagBranchIds.length} of ${totalActive} independent paths converge on this diagnosis, cross-validating through distinct methodologies.`
+    } else if (isPrimary) {
+      rationale = groupBranches[0]?.narrativeSummary.slice(0, 160) ?? `Primary reasoning path concludes: ${diagnosis}.`
+    } else {
+      const b = groupBranches[0]
+      const snippet = b?.narrativeSummary.slice(0, 150) ?? ''
+      rationale = snippet ? (snippet.length < (b?.narrativeSummary.length ?? 0) ? snippet + '…' : snippet) : `Alternative hypothesis explored: ${diagnosis}.`
+    }
+
+    // ── Evidence FOR: citations first, then tool results, from all branches in group ──
+    const evidenceForList: EvidenceEntry[] = []
+    const seenForIds = new Set<string>()
+
+    // Citations (most authoritative — formal guidelines/references)
+    for (const branchId of diagBranchIds) {
+      nodes
+        .filter(n => n.branch_id === branchId && n.type === 'citation' && !n.is_compliance_check)
+        .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
+        .forEach(n => {
+          if (!seenForIds.has(n.id)) {
+            seenForIds.add(n.id)
+            evidenceForList.push({ nodeId: n.id, headline: n.headline, source: n.source ?? null })
+          }
+        })
+    }
+    // Tool results (calculated findings)
+    for (const branchId of diagBranchIds) {
+      nodes
+        .filter(n => n.branch_id === branchId && n.type === 'tool' && !n.is_compliance_check)
+        .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
+        .forEach(n => {
+          if (!seenForIds.has(n.id)) {
+            seenForIds.add(n.id)
+            evidenceForList.push({
+              nodeId: n.id,
+              headline: n.headline,
+              source: n.source ?? n.tool_name ?? null,
+            })
+          }
+        })
+    }
+    const evidenceFor = evidenceForList.slice(0, 4)
+
+    // ── Evidence AGAINST: key nodes from competing branches ──
+    const evidenceAgainst: EvidenceEntry[] = []
+    const competingBranchIds = activeBranchIds.filter(id => !diagBranchIds.includes(id))
+
+    for (const competingId of competingBranchIds) {
+      if (evidenceAgainst.length >= 2) break
+      const competingBranch = branches.find(b => b.branchId === competingId)
+      const competingDiag = competingBranch?.diagnosis ?? null
+      if (!competingDiag) continue
+
+      const competingOwnNodes = nodes
+        .filter(n => n.branch_id === competingId && !n.is_compliance_check)
+        .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
+
+      // For PRIMARY: use the competing branch's opening reasoning (what they considered)
+      // For DIVERGENT/UNLIKELY: use the primary path's strongest evidence (why it didn't choose this)
+      const keyNode = tag === 'PRIMARY'
+        ? (competingOwnNodes.find(n => n.type === 'thought' && !n.is_decision_point) ?? competingOwnNodes[0])
+        : (competingOwnNodes.find(n => n.type === 'tool' || n.type === 'citation')
+           ?? competingOwnNodes.find(n => n.type === 'thought'))
+
+      if (keyNode) {
+        evidenceAgainst.push({
+          nodeId: keyNode.id,
+          headline: keyNode.headline,
+          source: `${competingDiag} path`,
+        })
+      }
+    }
+
+    // nextStep: prefer primary branch terminal, then first branch terminal
+    const nextStepNode = groupBranches
+      .map(b => {
+        const termId = b.nodeSummaries.find(ns => ns.isDiagnosis)?.nodeId
+        return termId ? nodes.find(n => n.id === termId) : undefined
+      })
+      .find(n => n?.next_step)
+    const nextStep = nextStepNode?.next_step
+
+    hypothesisGroups.push({
+      diagnosis,
+      tag,
+      branchIds: diagBranchIds,
+      pathCount: diagBranchIds.length,
+      totalPaths: totalActive,
+      rationale,
+      branches: groupBranches,
+      evidenceFor,
+      evidenceAgainst,
+      nextStep,
+    })
+  }
+
+  // Sort: primary first, then by path count descending
+  hypothesisGroups.sort((a, b) => {
+    if (a.tag === 'PRIMARY') return -1
+    if (b.tag === 'PRIMARY') return 1
+    return b.pathCount - a.pathCount
+  })
+
   // --- Rejected paths ---
   const rejectedPaths: RejectedPath[] = pruned.map(branchId => {
     const terminal = getTerminalNode(branchId)
@@ -165,21 +289,95 @@ export function computeSynthesis(
     const prunedNode = nodes
       .filter(n => n.branch_id === branchId)
       .find(n => n.is_pruned && n.prune_reason)
+    const pruneReason = prunedNode?.prune_reason ?? 'Branch removed'
+    const guidelineMatch = pruneReason.match(/([A-Z]{2,}[^\s]*\s*(?:§[\d.]+|CG\d+|Guideline[s]?))/i)
     return {
       branchId,
       diagnosis: terminal?.diagnosis ?? null,
       pruneSource,
-      pruneReason: prunedNode?.prune_reason ?? 'Branch removed',
+      pruneReason,
       shieldSeverity: prunedNode?.shield_severity,
+      guidelineRef: guidelineMatch ? guidelineMatch[1].trim() : null,
       terminalNodeId: terminal?.id ?? '',
     }
   })
+
+  // --- Safety summary ---
+  // Passed checks: compliance nodes with pass/warn result from active branches,
+  // plus safety-relevant tool nodes (drug interaction, guideline queries).
+  const SAFETY_TOOL_NAMES = new Set(['drug_interaction_check', 'guideline_query', 'allergy_screen', 'contraindication_check'])
+
+  const passedChecks: SafetyCheck[] = []
+  const seenCheckIds = new Set<string>()
+
+  for (const branchId of activeBranchIds) {
+    nodes
+      .filter(n => n.branch_id === branchId && n.is_compliance_check && (n.compliance_result === 'pass' || n.compliance_result === 'warning'))
+      .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
+      .forEach(n => {
+        if (!seenCheckIds.has(n.id)) {
+          seenCheckIds.add(n.id)
+          passedChecks.push({
+            nodeId: n.id,
+            label: n.headline,
+            source: n.source ?? null,
+            // compliance 'warning' = noted but cleared = info, not a problem
+            status: n.compliance_result === 'warning' ? 'info' : 'pass',
+          })
+        }
+      })
+    nodes
+      .filter(n => n.branch_id === branchId && n.type === 'tool' && n.tool_name && SAFETY_TOOL_NAMES.has(n.tool_name) && !n.is_compliance_check && !n.is_pruned)
+      .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
+      .forEach(n => {
+        if (!seenCheckIds.has(n.id)) {
+          seenCheckIds.add(n.id)
+          passedChecks.push({
+            nodeId: n.id,
+            label: n.headline,
+            source: n.source ?? n.tool_name ?? null,
+            status: 'pass',
+          })
+        }
+      })
+  }
+
+  // Violations: shield-pruned branches only
+  const shieldPrunedIds = pruned.filter(id => (pruneSourceMap.get(id) ?? 'doctor') === 'shield')
+  const violations: SafetyViolation[] = shieldPrunedIds.map(branchId => {
+    const terminal = getTerminalNode(branchId)
+    const prunedNode = nodes
+      .filter(n => n.branch_id === branchId && n.is_pruned && n.prune_reason)
+      .sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))[0]
+    const pruneReason = prunedNode?.prune_reason ?? 'Safety violation'
+    // Extract guideline ref from prune_reason (e.g. "ACC/AHA §6.1" or "NICE CG95")
+    const guidelineMatch = pruneReason.match(/([A-Z]{2,}[^\s]*\s*(?:§[\d.]+|CG\d+|Guideline[s]?))/i)
+    return {
+      branchId,
+      diagnosis: terminal?.diagnosis ?? null,
+      severity: prunedNode?.shield_severity ?? 'safety',
+      violation: pruneReason,
+      guidelineRef: guidelineMatch ? guidelineMatch[1].trim() : null,
+      terminalNodeId: terminal?.id ?? '',
+    }
+  })
+
+  // passedPaths: active (not shield-terminated) — excludes doctor-pruned per spec
+  const safetySummary: SafetySummary = {
+    passedPaths: activeBranchIds.length,
+    totalPaths: activeBranchIds.length + shieldPrunedIds.length,
+    passedChecks: passedChecks.slice(0, 6),
+    violations,
+  }
+
+  const primaryHypothesis = hypothesisGroups.find(g => g.tag === 'PRIMARY')
 
   return {
     recommendation: {
       diagnosis: primaryDiagnosis,
       summary: primaryTerminal?.content.slice(0, 220) ?? '',
       supportingNodeIds: primaryTerminal ? [primaryTerminal.id] : [],
+      nextStep: primaryHypothesis?.nextStep,
     },
     confidence: {
       level: confidenceLevel,
@@ -194,6 +392,8 @@ export function computeSynthesis(
           : `Reasoning paths diverge significantly. Additional clinical data needed before committing to a diagnosis.`,
     },
     branches,
+    hypothesisGroups,
     rejectedPaths,
+    safetySummary,
   }
 }

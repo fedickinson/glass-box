@@ -1,5 +1,5 @@
 /** TreeViewport — pan/zoom container. Exposes fitToView, fitBranch, panToNode via ref. */
-import React, { forwardRef, useImperativeHandle, useRef } from 'react'
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react'
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 import { PositionedNode } from '../../types/tree'
 
@@ -13,11 +13,40 @@ export interface TreeViewportHandle {
 
 interface Props {
   children: React.ReactNode
+  /** SVG canvas dimensions — used to clamp min/max zoom */
+  canvasWidth?: number
+  canvasHeight?: number
+  /** Total node count — max zoom scales inversely so context is preserved */
+  nodeCount?: number
 }
 
-const TreeViewport = forwardRef<TreeViewportHandle, Props>(({ children }, ref) => {
+const TreeViewport = forwardRef<TreeViewportHandle, Props>(
+  ({ children, canvasWidth = 2000, canvasHeight = 2000, nodeCount = 20 }, ref) => {
   const transformRef = useRef<ReactZoomPanPinchRef>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Track container dimensions via ResizeObserver
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      const e = entries[0]
+      if (e) setContainerSize({ w: e.contentRect.width, h: e.contentRect.height })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // minScale: hard stop at fit-to-view — you can never zoom out past the full tree
+  const fitScale = containerSize.w > 0 && containerSize.h > 0
+    ? Math.min(containerSize.w / canvasWidth, containerSize.h / canvasHeight)
+    : 0.15
+  const minScale = Math.max(0.05, fitScale)
+
+  // maxScale: inversely proportional to node count so you can't zoom in so far
+  // that you lose all context. 40 nodes → ~2x, 10 nodes → ~3x (capped at 3).
+  const maxScale = Math.max(1.2, Math.min(3.0, 80 / Math.max(nodeCount, 1)))
 
   useImperativeHandle(ref, () => ({
     fitToView() {
@@ -72,9 +101,9 @@ const TreeViewport = forwardRef<TreeViewportHandle, Props>(({ children }, ref) =
     <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
       <TransformWrapper
         ref={transformRef}
-        initialScale={0.72}
-        minScale={0.15}
-        maxScale={3}
+        initialScale={Math.max(minScale, Math.min(0.72, maxScale))}
+        minScale={minScale}
+        maxScale={maxScale}
         limitToBounds={false}
         centerOnInit={true}
         smooth={true}

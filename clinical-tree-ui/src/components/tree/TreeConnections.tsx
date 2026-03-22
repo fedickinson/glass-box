@@ -1,28 +1,27 @@
 /** TreeConnections — SVG paths connecting parent→child nodes, focus-aware opacity */
 import React from 'react'
-import { Connection, FocusState } from '../../types/tree'
+import { Connection } from '../../types/tree'
 
 interface Props {
   connections: Connection[]
-  focusState: FocusState
+  /** Pre-computed set of highlighted node IDs (null = no focus active) */
+  focusedNodeIds: Set<string> | null
+  /** True when any focus mode is active (branch_focused or hypothesis_focused) */
+  isFocused: boolean
   prunedBranchIds: Set<string>
+  pruneSourceMap: Map<string, 'shield' | 'doctor'>
   /** Nodes with step_index > growthCursor are hidden; Infinity = show all */
   growthCursor: number
 }
 
 export default function TreeConnections({
   connections,
-  focusState,
+  focusedNodeIds,
+  isFocused,
   prunedBranchIds,
+  pruneSourceMap,
   growthCursor,
 }: Props) {
-  const focusedBranchId =
-    focusState.mode === 'branch_focused' ? focusState.branchId : null
-  const focusedNodeIds =
-    focusState.mode === 'branch_focused'
-      ? new Set(focusState.branchNodeIds)
-      : null
-  const isFocused = focusedBranchId !== null
 
   return (
     <g>
@@ -30,6 +29,12 @@ export default function TreeConnections({
         const isPruned =
           prunedBranchIds.has(conn.sourceBranchId) ||
           prunedBranchIds.has(conn.targetBranchId)
+
+        const isShieldKilled =
+          isPruned && (
+            pruneSourceMap.get(conn.sourceBranchId) === 'shield' ||
+            pruneSourceMap.get(conn.targetBranchId) === 'shield'
+          )
 
         // Connection is "on focused branch" if both endpoints are in the focused path
         const isOnFocusedPath =
@@ -43,7 +48,12 @@ export default function TreeConnections({
         let strokeOpacity: number
         let strokeDasharray: string | undefined
 
-        if (isPruned) {
+        if (isShieldKilled) {
+          stroke = '#C53D2F'
+          strokeWidth = 1.5
+          strokeDasharray = '4,3'
+          strokeOpacity = isFocused && !isOnFocusedPath ? 0.05 : 0.35
+        } else if (isPruned) {
           stroke = 'var(--conn-pruned-color)'
           strokeWidth = 1
           strokeOpacity = isFocused && !isOnFocusedPath ? 0.05 : 0.2
@@ -58,8 +68,28 @@ export default function TreeConnections({
           strokeDasharray = '5,4'
         }
 
+        // Preflight fan-in: thin line colored by compliance result, no bloom
+        if (conn.isPreflightFanIn) {
+          const resultColor =
+            conn.complianceResult === 'pass'    ? '#2D8A56' :
+            conn.complianceResult === 'warning' ? '#B37A0A' :
+            conn.complianceResult === 'fail'    ? '#C53D2F' :
+                                                  '#6B7280'
+          return (
+            <path
+              key={conn.id}
+              d={conn.pathData}
+              fill="none"
+              stroke={resultColor}
+              strokeWidth={1.5}
+              strokeOpacity={isFocused && !isOnFocusedPath ? 0.06 : 0.5}
+              style={{ transition: 'stroke-opacity 200ms ease-out' }}
+            />
+          )
+        }
+
         // For primary connections: render a multi-layer bloom (outer glow + crisp)
-        if (conn.isOnPrimaryPath && !isPruned) {
+        if (conn.isOnPrimaryPath && !isPruned && !isShieldKilled) {
           return (
             <g key={conn.id} style={{ transition: 'opacity 200ms ease-out' }} opacity={isFocused && !isOnFocusedPath ? 0.12 : 1}>
               <path d={conn.pathData} fill="none" stroke="rgba(59,125,216,0.10)" strokeWidth={10} />
@@ -78,7 +108,7 @@ export default function TreeConnections({
         // For branching connections: amber glow if forking from a decision point
         const isFromDecision =
           !conn.isOnPrimaryPath && conn.sourceBranchId === 'primary'
-        if (isFromDecision && !isPruned) {
+        if (isFromDecision && !isPruned && !isShieldKilled) {
           return (
             <g key={conn.id} style={{ transition: 'opacity 200ms ease-out' }} opacity={isFocused && !isOnFocusedPath ? 0.08 : 1}>
               <path d={conn.pathData} fill="none" stroke="rgba(154,100,0,0.10)" strokeWidth={8} strokeDasharray={strokeDasharray} />

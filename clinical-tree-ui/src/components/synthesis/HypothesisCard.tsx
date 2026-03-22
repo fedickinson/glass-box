@@ -300,78 +300,27 @@ function buildChallengesNarrative(group: HypothesisGroup): string {
   return `${items[0]}. ${items.slice(1).join('. ')}.`
 }
 
-// ── Next actions per diagnosis ───────────────────────────────────
-const NEXT_ACTIONS: Record<string, string[]> = {
-  'Unstable angina': [
-    'Order EKG',
-    'Troponin levels',
-    'Cardiology consult within 24hrs',
-    'Review anticoagulant dosing',
-  ],
-  'GERD (less likely)': [
-    'Upper GI evaluation',
-    'Trial proton pump inhibitor',
-    'Dietary assessment',
-  ],
-  'Pulmonary embolism (unlikely)': [
-    'D-dimer test',
-    'CT angiography if D-dimer elevated',
-    'Assess Wells score',
-  ],
-}
-
-function NextActionsZone({ diagnosis, accentColor }: {
-  diagnosis: string; accentColor: string
-}) {
-  const actions = NEXT_ACTIONS[diagnosis] ?? []
-  if (actions.length === 0) return null
-
+// ── Next step zone (driven by group.nextStep from data) ─────────
+function NextStepZone({ nextStep, accentColor }: { nextStep: string; accentColor: string }) {
   return (
     <div style={{
       margin: '6px 11px 10px',
-      borderRadius: 8,
-      background: 'rgba(255,255,255,0.85)',
-      border: '1px solid rgba(0,0,0,0.09)',
-      borderTop: '1px solid rgba(255,255,255,0.95)',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)',
-      overflow: 'hidden',
+      display: 'flex', alignItems: 'flex-start', gap: 8,
+      padding: '8px 10px',
+      borderRadius: 7,
+      background: `${accentColor}08`,
+      border: `1px solid ${accentColor}22`,
+      borderLeft: `3px solid ${accentColor}55`,
     }}>
-      <div style={{
-        padding: '7px 10px 5px',
-        fontSize: 8, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-        color: 'rgba(0,0,0,0.35)',
-        borderBottom: '1px solid rgba(0,0,0,0.06)',
+      <span style={{
+        fontSize: 8, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
+        color: accentColor, flexShrink: 0, marginTop: 2,
       }}>
-        Next Actions
-      </div>
-      <div style={{ padding: '6px 8px 8px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {actions.map((action, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '6px 9px',
-              borderRadius: 6,
-              background: `${accentColor}0A`,
-              border: `1px solid ${accentColor}22`,
-              borderLeft: `3px solid ${accentColor}`,
-            }}
-          >
-            <span style={{
-              fontSize: 12.5, lineHeight: 1,
-              color: accentColor, fontWeight: 700, flexShrink: 0,
-            }}>
-              →
-            </span>
-            <span style={{
-              fontSize: 12, fontWeight: 600, lineHeight: 1.3,
-              color: '#18192a',
-            }}>
-              {action}
-            </span>
-          </div>
-        ))}
-      </div>
+        Next step for this diagnosis
+      </span>
+      <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.65)', lineHeight: 1.5 }}>
+        {nextStep}
+      </span>
     </div>
   )
 }
@@ -404,6 +353,7 @@ interface Props {
   group: HypothesisGroup
   isExpanded: boolean
   onToggleExpand: () => void
+  attachedToHeader?: boolean // when true: no top radius/border, header row hidden
   focusState: FocusState
   annotations: DoctorAnnotation[]
   pinnedBranchId: string | null
@@ -422,6 +372,7 @@ export default function HypothesisCard({
   group,
   isExpanded,
   onToggleExpand,
+  attachedToHeader = false,
   focusState,
   annotations,
   pinnedBranchId,
@@ -487,49 +438,55 @@ export default function HypothesisCard({
     <div
       ref={cardRef}
       style={{
-        borderRadius: 9,
-        border: isFocused
-          ? `1.5px solid ${colors.accent}50`
-          : '1px solid rgba(0,0,0,0.07)',
-        borderLeft: `3px solid ${isFocused ? colors.accent : colors.accent + '55'}`,
-        borderTop: '1px solid rgba(255,255,255,1)',
-        background: isFocused
+        borderRadius: attachedToHeader ? '0 0 14px 14px' : 9,
+        border: attachedToHeader
+          ? '1px solid rgba(26,82,168,0.12)'
+          : isFocused ? `1.5px solid ${colors.accent}50` : '1px solid rgba(0,0,0,0.07)',
+        borderLeft: attachedToHeader
+          ? '1px solid rgba(26,82,168,0.12)'
+          : `3px solid ${isFocused ? colors.accent : colors.accent + '55'}`,
+        borderTop: attachedToHeader ? 'none' : '1px solid rgba(255,255,255,1)',
+        background: attachedToHeader
+          ? 'linear-gradient(148deg, rgba(232,242,255,0.5) 0%, rgba(242,248,255,0.7) 100%)'
+          : isFocused
           ? `linear-gradient(148deg, ${colors.accent}10 0%, rgba(255,255,255,0.92) 100%)`
           : 'linear-gradient(148deg, rgba(255,255,255,0.96) 0%, rgba(246,248,255,0.92) 100%)',
-        boxShadow: isFocused
+        boxShadow: attachedToHeader
+          ? '0 2px 12px rgba(26,82,168,0.07)'
+          : isFocused
           ? `0 0 0 2px ${colors.accent}14, 0 1px 3px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1)`
           : '0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)',
-        marginBottom: 5,
+        marginBottom: 10,
         transition: 'all 200ms ease-out',
         overflow: 'hidden',
       }}
     >
-      {/* ── ONE-LINE HEADER ── */}
-      <div
+      {/* ── ONE-LINE HEADER — hidden when attached to recommendation box ── */}
+      {!attachedToHeader && <div
         onClick={onToggleExpand}
         style={{
           display: 'flex', alignItems: 'center', gap: 7,
           padding: '7px 9px', cursor: 'pointer', minWidth: 0,
         }}
       >
-        {/* Tag */}
-        <span style={{
-          fontSize: 7, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-          padding: '1.5px 4px', borderRadius: 3,
-          background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
-          flexShrink: 0,
-        }}>
-          {group.tag}
-        </span>
+        {/* Tag — only shown for PRIMARY (others are under "Less likely but valid" header) */}
+        {group.tag === 'PRIMARY' && (
+          <span style={{
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
+            padding: '1.5px 4px', borderRadius: 3,
+            background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+            flexShrink: 0,
+          }}>
+            {group.tag}
+          </span>
+        )}
 
         {/* Diagnosis name */}
         <span style={{
-          fontSize: 12.5,
-          fontWeight: group.tag === 'PRIMARY' ? 600 : 500,
+          fontSize: 12.5, fontWeight: 500,
           color: '#111', lineHeight: 1.2,
           flex: 1, minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontFamily: group.tag === 'PRIMARY' ? 'Georgia, "Times New Roman", serif' : 'inherit',
         }}>
           {group.diagnosis}
           {isPinned && <span style={{ fontSize: 9, color: '#1A52A8', marginLeft: 5 }}>★</span>}
@@ -542,7 +499,7 @@ export default function HypothesisCard({
           borderRadius: 4, padding: '2px 6px',
           flexShrink: 0, whiteSpace: 'nowrap',
         }}>
-          {group.pathCount === 1 ? '1 path' : `${group.pathCount} paths`}
+          {group.pathCount} of {group.totalPaths} paths
         </span>
 
         {/* Exclusion strength badge (UNLIKELY cards only) */}
@@ -558,21 +515,6 @@ export default function HypothesisCard({
           </span>
         )}
 
-        {/* Audit button */}
-        <button
-          onClick={e => { e.stopPropagation(); onHypothesisClick(group.diagnosis, group.branchIds) }}
-          title="Highlight all branches for this hypothesis"
-          style={{
-            fontSize: 8.5, fontWeight: 600, color: colors.text,
-            background: colors.bg, border: `1px solid ${colors.border}`,
-            borderRadius: 4, padding: '2px 7px', cursor: 'pointer', flexShrink: 0,
-          }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '0.75' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
-        >
-          Audit →
-        </button>
-
         {/* Chevron */}
         <span style={{
           fontSize: 8, color: 'rgba(0,0,0,0.25)',
@@ -582,53 +524,34 @@ export default function HypothesisCard({
         }}>
           ▾
         </span>
-      </div>
+      </div>}
+
 
       {/* ── EXPANDED CONTENT ── */}
       {isExpanded && (
         <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)' }}>
 
-          {/* ── PRIMARY metadata: Evidence Basis + Convergence ── */}
-          {group.tag === 'PRIMARY' && (
+          {/* ── PRIMARY metadata: Convergence ── */}
+          {group.tag === 'PRIMARY' && group.pathCount > 1 && (
             <div style={{
-              padding: '8px 11px',
+              padding: '7px 11px',
               borderBottom: '1px solid rgba(0,0,0,0.05)',
-              display: 'flex', flexDirection: 'column', gap: 5,
+              display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              {/* Evidence Basis */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.45)', flexShrink: 0, minWidth: 96 }}>
-                  Evidence Basis
-                </span>
-                <span style={{
-                  fontSize: 8.5, fontWeight: 700, letterSpacing: '0.04em',
-                  color: '#1A6E3C', background: 'rgba(26,110,60,0.1)',
-                  border: '1px solid rgba(26,110,60,0.22)', borderRadius: 3,
-                  padding: '1px 5px', flexShrink: 0,
-                }}>
-                  Strong
-                </span>
-                <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.38)' }}>
-                  5 of 8 steps grounded in validated tools or guidelines
-                </span>
-              </div>
-              {/* Convergence */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.45)', flexShrink: 0, minWidth: 96 }}>
-                  Convergence
-                </span>
-                <span style={{
-                  fontSize: 8.5, fontWeight: 700, letterSpacing: '0.04em',
-                  color: '#1A6E3C', background: 'rgba(26,110,60,0.1)',
-                  border: '1px solid rgba(26,110,60,0.22)', borderRadius: 3,
-                  padding: '1px 5px', flexShrink: 0,
-                }}>
-                  {group.pathCount} paths
-                </span>
-                <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.38)' }}>
-                  Guideline risk stratification · Bayesian pre-test probability
-                </span>
-              </div>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.45)', flexShrink: 0, minWidth: 88 }}>
+                Convergence
+              </span>
+              <span style={{
+                fontSize: 8.5, fontWeight: 700, letterSpacing: '0.04em',
+                color: '#1A6E3C', background: 'rgba(26,110,60,0.1)',
+                border: '1px solid rgba(26,110,60,0.22)', borderRadius: 3,
+                padding: '1px 5px', flexShrink: 0,
+              }}>
+                {group.pathCount} paths
+              </span>
+              <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.38)' }}>
+                {group.pathCount} of {group.totalPaths} independent reasoning paths agree
+              </span>
             </div>
           )}
 
@@ -894,11 +817,10 @@ export default function HypothesisCard({
               )}
             </div>
           )}
-          {/* ── ZONE 4: Next Actions ── */}
-          <NextActionsZone
-            diagnosis={group.diagnosis}
-            accentColor={colors.accent}
-          />
+          {/* ── ZONE 4: Next step ── */}
+          {group.nextStep && (
+            <NextStepZone nextStep={group.nextStep} accentColor={colors.accent} />
+          )}
         </div>
       )}
     </div>

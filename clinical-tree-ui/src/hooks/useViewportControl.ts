@@ -29,16 +29,36 @@ export function useViewportControl(
         prev.mode === 'branch_focused' ? prev.selectedNodeId : null
 
       if (selectedNodeId && selectedNodeId !== prevSelectedId) {
-        // New node selected — pan to it
+        // New node selected — pan to it and zoom in for detail reading
         const node = tree.nodes.find(n => n.id === selectedNodeId)
-        if (node) vp.panToNode(node)
+        if (node) vp.panToNode(node, 1.35)
       } else if (focusState.branchId !== prevBranchId && !selectedNodeId) {
         // New branch focused — fit the branch
         vp.fitBranch(branchNodeIds, tree.nodes)
       } else if (prev.mode === 'idle' && selectedNodeId) {
-        // Entering focus from idle — pan to selected node
+        // Entering focus from idle — pan to selected node and zoom in
         const node = tree.nodes.find(n => n.id === selectedNodeId)
+        if (node) vp.panToNode(node, 1.35)
+      }
+    }
+
+    if (focusState.mode === 'hypothesis_focused') {
+      const { highlightedNodeId } = focusState
+      const prevHighlighted =
+        prev.mode === 'hypothesis_focused' ? prev.highlightedNodeId : null
+      const prevDiagnosis =
+        prev.mode === 'hypothesis_focused' ? prev.diagnosis : null
+
+      if (highlightedNodeId && highlightedNodeId !== prevHighlighted) {
+        // Evidence bullet clicked — pan to that node
+        const node = tree.nodes.find(n => n.id === highlightedNodeId)
         if (node) vp.panToNode(node)
+      } else if (focusState.diagnosis !== prevDiagnosis) {
+        // New hypothesis focused — fit all branches in the group
+        const groupNodeIds = tree.nodes
+          .filter(n => focusState.branchIds.includes(n.branch_id))
+          .map(n => n.id)
+        vp.fitBranch(groupNodeIds, tree.nodes)
       }
     }
   }, [focusState, tree, viewportRef])

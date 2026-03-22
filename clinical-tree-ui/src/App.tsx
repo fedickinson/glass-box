@@ -14,8 +14,11 @@ import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
 import GrowthControls from './components/tree/GrowthControls'
 import NodeDetail from './components/tree/NodeDetail'
+import BranchConclusionPanel from './components/tree/BranchConclusionPanel'
+import { TerminalVariant } from './components/tree/TerminalCard'
 import SynthesisPanel from './components/synthesis/SynthesisPanel'
 import AuditTrail from './components/AuditTrail'
+import { ShieldIcon } from './components/shared/Icons'
 import BaselineView from './components/BaselineView'
 
 // Transform mock data once at module level
@@ -34,6 +37,34 @@ function AppLayout() {
   const [showAuditTrail, setShowAuditTrail] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [cameraMode, setCameraMode] = useState<GrowthCameraMode>('follow')
+
+  // Canvas bounds — drives zoom clamping in TreeViewport
+  const canvasDims = useMemo(() => {
+    const nodes = state.tree.nodes
+    if (nodes.length === 0) return { width: 2000, height: 2000 }
+    const CANVAS_PAD = 40
+    return {
+      width:  Math.max(...nodes.map(n => n.x + n.width))  + CANVAS_PAD,
+      height: Math.max(...nodes.map(n => n.y + n.height)) + CANVAS_PAD,
+    }
+  }, [state.tree.nodes])
+
+  // Shield stats — counts revealed checks and violations for the status badge
+  const shieldStats = useMemo(() => {
+    const cursor = getGrowthCursor(state.growth)
+    const sorted = [...state.tree.nodes].sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
+    const revealedMax = cursor === Infinity ? sorted.length : Math.min(cursor + 1, sorted.length)
+    const revealed = sorted.slice(0, revealedMax)
+    const checkedRevealed = revealed.filter(n => n.shield_checked)
+    const violationsRevealed = revealed.filter(n => n.shield_severity)
+    const totalChecks = state.tree.nodes.filter(n => n.shield_checked).length
+    return {
+      checked: checkedRevealed.length,
+      passed: checkedRevealed.length - violationsRevealed.length,
+      violations: violationsRevealed.length,
+      total: totalChecks,
+    }
+  }, [state.growth, state.tree])
 
   // Computed synthesis — re-runs on every prune/restore/annotate/pin
   const synthesis = useMemo(
@@ -143,6 +174,27 @@ function AppLayout() {
         {/* Right controls */}
         <div className="ml-auto flex items-center gap-2">
 
+          {/* Link to orthopedics demo */}
+          <a
+            href="/orthopedics"
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.05em',
+              padding: '5px 12px',
+              borderRadius: 20,
+              background: 'rgba(107,64,189,0.06)',
+              border: '1px solid rgba(107,64,189,0.18)',
+              color: '#6B40BD',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            Board Q →
+          </a>
+
           {/* Start Growth / growth status */}
           {state.growth.mode === 'idle' && !showBaseline && (
             <button
@@ -235,12 +287,70 @@ function AppLayout() {
             borderRight: '1px solid rgba(0,0,0,0.07)',
           }}
         >
+          {/* ── Shield status badge — persistent top-right overlay ── */}
+          {!showBaseline && shieldStats.checked > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 12,
+                zIndex: 10,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 11px',
+                borderRadius: 20,
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+                border: shieldStats.violations > 0
+                  ? '1px solid rgba(197,61,47,0.28)'
+                  : '1px solid rgba(45,138,86,0.28)',
+                boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
+                transition: 'border-color 300ms ease-out',
+              }}
+            >
+              <ShieldIcon size={13} color={shieldStats.violations > 0 ? '#C53D2F' : '#2D8A56'} />
+              <span style={{
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                color: shieldStats.violations > 0 ? '#C53D2F' : '#2D8A56',
+                transition: 'color 300ms ease-out',
+              }}>
+                Shield active
+              </span>
+              <span style={{
+                fontSize: 9,
+                color: 'rgba(0,0,0,0.45)',
+                marginLeft: 2,
+              }}>
+                {shieldStats.passed} of {shieldStats.checked} checks passed
+              </span>
+              {shieldStats.violations > 0 && (
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: '#C53D2F',
+                  marginLeft: 2,
+                }}>
+                  · {shieldStats.violations} violation{shieldStats.violations > 1 ? 's' : ''} caught
+                </span>
+              )}
+            </div>
+          )}
+
           {showBaseline ? (
             <BaselineView />
           ) : (
             <>
               <div className="flex-1 overflow-hidden">
-                <TreeViewport ref={viewportRef}>
+                <TreeViewport
+                  ref={viewportRef}
+                  canvasWidth={canvasDims.width}
+                  canvasHeight={canvasDims.height}
+                  nodeCount={state.tree.nodes.length}
+                >
                   <TreeCanvas
                     nodes={state.tree.nodes}
                     connections={state.tree.connections}
@@ -263,43 +373,94 @@ function AppLayout() {
                 </TreeViewport>
               </div>
 
-              {/* Node detail overlay */}
-              {selectedNode && (
-                <NodeDetail
-                  node={selectedNode}
-                  viewMode={state.viewMode}
-                  onClose={() => dispatch({ type: 'CLEAR_FOCUS' })}
+              {/* BranchConclusionPanel — bottom drawer for terminal nodes */}
+              {selectedNode && selectedNode.isTerminal && (() => {
+                const branchId = selectedNode.branch_id
+                const isPruned = state.prunedBranchIds.has(branchId)
+                const pruneSource = state.pruneSourceMap.get(branchId)
+                const isShieldKilled = isPruned && pruneSource === 'shield'
+                const isConverging = !isPruned && state.tree.convergences.some(
+                  c => c.terminalNodeIds.includes(selectedNode.id) && c.terminalNodeIds.length > 1
+                )
+                const variant: TerminalVariant = isShieldKilled ? 'shield_killed'
+                  : isPruned ? 'doctor_pruned'
+                  : isConverging ? 'converging'
+                  : 'divergent'
+                const branchSummary = synthesis.branches.find(b => b.branchId === branchId) ?? null
+                const rejectedPath = synthesis.rejectedPaths.find(r => r.branchId === branchId) ?? null
+                return (
+                  <BranchConclusionPanel
+                    terminalNode={selectedNode}
+                    variant={variant}
+                    branchSummary={branchSummary}
+                    convergences={state.tree.convergences}
+                    rejectedPath={rejectedPath}
+                    safetySummary={synthesis.safetySummary}
+                    onClose={() => dispatch({ type: 'CLEAR_FOCUS' })}
+                    onPruneBranch={id => dispatch({ type: 'PRUNE_BRANCH', branchId: id, source: 'doctor' })}
+                    onRestoreBranch={id => dispatch({ type: 'RESTORE_BRANCH', branchId: id })}
+                    onEvidenceNodeClick={nodeId => dispatch({ type: 'PEEK_NODE', nodeId })}
+                    onAuditHypothesis={(diagnosis, branchIds) =>
+                      dispatch({ type: 'FOCUS_HYPOTHESIS', diagnosis, branchIds })
+                    }
+                  />
+                )
+              })()}
+
+              {/* BranchScrubber — only when branch focused with no specific node selected (drawer handles navigation otherwise) */}
+              {state.growth.mode === 'idle' && isBranchFocused && focusBranch && !selectedNode && (
+                <BranchScrubber
+                  branchNodeIds={focusBranch.branchNodeIds}
+                  nodes={state.tree.nodes}
+                  selectedIndex={focusBranch.selectedNodeIndex}
+                  onScrub={index => {
+                    const nodeId = focusBranch.branchNodeIds[index]
+                    if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
+                  }}
                 />
               )}
 
-              {/* Bottom bar: BranchScrubber (idle) or GrowthControls (active growth) */}
-              {state.growth.mode === 'idle'
-                ? isBranchFocused && focusBranch && (
-                    <BranchScrubber
-                      branchNodeIds={focusBranch.branchNodeIds}
-                      nodes={state.tree.nodes}
-                      selectedIndex={focusBranch.selectedNodeIndex}
-                      onScrub={index => {
-                        const nodeId = focusBranch.branchNodeIds[index]
-                        if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
-                      }}
-                    />
-                  )
-                : (
-                    <GrowthControls
-                      growth={state.growth}
-                      totalNodes={state.tree.nodes.length}
-                      cameraMode={cameraMode}
-                      onCameraMode={setCameraMode}
-                      onPlay={() => dispatch({ type: 'RESUME_GROWTH' })}
-                      onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
-                      onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
-                      onStepBackward={() => dispatch({ type: 'STEP_BACKWARD' })}
-                      onSetSpeed={(speed: GrowthSpeed) => dispatch({ type: 'SET_GROWTH_SPEED', speed })}
-                      onSkipToEnd={() => dispatch({ type: 'SKIP_TO_END' })}
-                    />
-                  )
-              }
+              {/* NodeDetail bottom drawer — mid-chain nodes only; embeds scrubber, slides up */}
+              {selectedNode && !selectedNode.isTerminal && focusBranch && (
+                <NodeDetail
+                  node={selectedNode}
+                  allNodes={state.tree.nodes}
+                  branchNodeIds={focusBranch.branchNodeIds}
+                  selectedNodeIndex={focusBranch.selectedNodeIndex}
+                  viewMode={state.viewMode}
+                  annotations={state.annotations}
+                  onClose={() => dispatch({ type: 'CLEAR_FOCUS' })}
+                  onNavigateNext={() => dispatch({ type: 'NAVIGATE_NEXT' })}
+                  onNavigatePrev={() => dispatch({ type: 'NAVIGATE_PREV' })}
+                  onScrub={index => {
+                    const nodeId = focusBranch.branchNodeIds[index]
+                    if (nodeId) dispatch({ type: 'SELECT_NODE', nodeId })
+                  }}
+                  onFocusBranch={branchId => dispatch({ type: 'FOCUS_BRANCH', branchId })}
+                  onAddAnnotation={(nodeId, type, content) =>
+                    dispatch({ type: 'ADD_ANNOTATION', nodeId, annotationType: type, content })
+                  }
+                  onPruneBranch={branchId =>
+                    dispatch({ type: 'PRUNE_BRANCH', branchId, source: 'doctor' })
+                  }
+                />
+              )}
+
+              {/* GrowthControls — shown during active growth playback */}
+              {state.growth.mode !== 'idle' && (
+                <GrowthControls
+                  growth={state.growth}
+                  totalNodes={state.tree.nodes.length}
+                  cameraMode={cameraMode}
+                  onCameraMode={setCameraMode}
+                  onPlay={() => dispatch({ type: 'RESUME_GROWTH' })}
+                  onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
+                  onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
+                  onStepBackward={() => dispatch({ type: 'STEP_BACKWARD' })}
+                  onSetSpeed={(speed: GrowthSpeed) => dispatch({ type: 'SET_GROWTH_SPEED', speed })}
+                  onSkipToEnd={() => dispatch({ type: 'SKIP_TO_END' })}
+                />
+              )}
             </>
           )}
         </div>
@@ -311,6 +472,8 @@ function AppLayout() {
           annotations={state.annotations}
           pinnedBranchId={state.pinnedBranchId}
           onBranchClick={branchId => dispatch({ type: 'FOCUS_BRANCH', branchId })}
+          onHypothesisClick={(diagnosis, branchIds) => dispatch({ type: 'FOCUS_HYPOTHESIS', diagnosis, branchIds })}
+          onEvidenceNodeClick={nodeId => dispatch({ type: 'PEEK_NODE', nodeId })}
           onNodeClick={nodeId => dispatch({ type: 'SELECT_NODE', nodeId })}
           onNodeHoverEnter={setHoveredNodeId}
           onNodeHoverLeave={() => setHoveredNodeId(null)}
