@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Synthesis panel generation animations */
+@keyframes synthesis-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes synthesis-dot-1 {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1;    transform: translateY(-4px); }
+}
+@keyframes synthesis-dot-2 {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  50%           { opacity: 1;    transform: translateY(-4px); }
+}
+@keyframes synthesis-dot-3 {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  60%           { opacity: 1;    transform: translateY(-4px); }
+}
+
+@keyframes synthesis-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+.synthesis-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(200,210,230,0.35) 0%,
+    rgba(220,228,245,0.60) 30%,
+    rgba(200,210,230,0.35) 60%
+  );
+  background-size: 800px 100%;
+  animation: synthesis-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.synthesis-reveal-section {
+  opacity: 0;
+  transform: translateY(18px);
+  /* transition is driven by transitionDelay inline style per section */
+  transition: opacity 520ms ease-out, transform 520ms ease-out;
+}
+.synthesis-reveal-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
