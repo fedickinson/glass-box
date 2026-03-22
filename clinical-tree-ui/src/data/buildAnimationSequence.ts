@@ -23,7 +23,7 @@ export function buildAnimationSequence(): AnimationBeat[] {
     newIds: string[],
     activeBranchIds: string[] | null,
     pauseMs: number,
-    opts?: { autoPause?: boolean; isDecisionReveal?: boolean; phase?: string; holdMs?: number }
+    opts?: { autoPause?: boolean; isDecisionReveal?: boolean; isBranchReveal?: boolean; isFirstAfterFork?: boolean; phase?: string; holdMs?: number }
   ): void {
     visible = [...visible, ...newIds]
     beats.push({
