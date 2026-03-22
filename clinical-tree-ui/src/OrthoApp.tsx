@@ -178,6 +178,7 @@ function OrthoLayout({ reasoningMode = false, speed = 'medium' }: { reasoningMod
             <video
               src="/logo.mp4"
               autoPlay
+              loop
               muted
               playsInline
               className="w-14 h-14 object-contain"

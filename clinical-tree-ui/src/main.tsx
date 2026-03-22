@@ -40,8 +40,14 @@ if (path.startsWith('/orthopedics/reasoning')) {
   document.getElementById('root')!.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#f8f9fb;font-family:system-ui,sans-serif;">
       <div style="text-align:center;color:#555;">
-        <img src="${fullLogoUrl}" alt="Clinical Reasoning Tree" style="display:block;margin:0 auto; max-width:455px;" />
+        <video
+          src="/logo.mp4"
+          autoPlay
+          muted
+          loop
+        ></video>  
 
+        <div style="font-size:40px;;color: #0e3d9c;margin-bottom:8px;"><b>Glass</b>Box</div>
         <div style="font-size:22px;font-weight:500;color:#111;margin-bottom:8px;">Demo is at <a href="/orthopedics" style="color:#1A52A8;text-decoration:none;">/orthopedics</a></div>
         <div style="font-size:13px;color:#888;">Navigate to <a href="/orthopedics" style="color:#1A52A8;">/orthopedics</a> for the full view, or <a href="/orthopedics/reasoning/slow" style="color:#1A52A8;">/orthopedics/reasoning/slow</a> · <a href="/orthopedics/reasoning/medium" style="color:#1A52A8;">/medium</a> · <a href="/orthopedics/reasoning/fast" style="color:#1A52A8;">/fast</a> for reasoning playback.</div>
       </div>
