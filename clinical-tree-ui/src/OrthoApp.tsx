@@ -12,6 +12,7 @@ import { buildParallelAnimationSequence } from './data/buildParallelAnimationSeq
 import { computeSynthesis } from './data/computeSynthesis'
 import { GrowthPlaybackState, AnimationBeat } from './types/tree'
 import TreeViewport, { TreeViewportHandle } from './components/tree/TreeViewport'
+import logoTransparent from './assets/logo-transparent.png'
 import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
 import GrowthControls from './components/tree/GrowthControls'
