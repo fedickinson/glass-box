@@ -1,6 +1,7 @@
 /** SafetyComplianceSection — collapsed safety summary with expandable violation details */
 import React, { useState } from 'react'
 import { SafetySummary, ShieldSeverity } from '../../types/tree'
+import { CheckIcon, WarningIcon, ChevronDownIcon } from '../shared/Icons'
 
 const SEVERITY_STYLES: Record<ShieldSeverity, { label: string; color: string; bg: string; border: string }> = {
   safety:        { label: 'Safety',        color: '#b03020', bg: 'rgba(185,50,38,0.07)',  border: 'rgba(185,50,38,0.20)' },
@@ -19,8 +20,9 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
   const [expanded, setExpanded] = useState(false)
   const [confirmingRestore, setConfirmingRestore] = useState<string | null>(null)
 
-  const { passedPaths, totalPaths, passedChecks, violations } = safetySummary
+  const { passedPaths, totalPaths, flaggedPaths, passedChecks, violations } = safetySummary
   const hasViolations = violations.length > 0
+  const clearedPaths = passedPaths - flaggedPaths
 
   function handleRestoreClick(branchId: string) {
     if (confirmingRestore === branchId) {
@@ -40,7 +42,7 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
           fontWeight: 700,
           letterSpacing: '0.10em',
           textTransform: 'uppercase',
-          color: 'rgba(0,0,0,0.35)',
+          color: 'rgba(0,0,0,0.60)',
           marginBottom: 8,
         }}
       >
@@ -62,24 +64,61 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
       >
         {/* Summary lines */}
         <div style={{ padding: '10px 12px 8px' }}>
-          {/* Passed paths line */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-            <span style={{ fontSize: 11, color: '#1A7042', fontWeight: 700 }}>✓</span>
-            <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.65)', lineHeight: 1.35 }}>
-              <strong style={{ fontWeight: 600, color: '#18192a' }}>{passedPaths} of {totalPaths}</strong> paths cleared all safety checks
-            </span>
+          {/* Passed/flagged paths + audit trail button */}
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, marginBottom: 5 }}>
+            {/* Left: status lines */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}><CheckIcon size={11} color="#1A7042" /></span>
+                <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.65)', lineHeight: 1.35 }}>
+                  <strong style={{ fontWeight: 600, color: '#18192a' }}>{flaggedPaths > 0 ? clearedPaths : passedPaths} of {totalPaths}</strong> paths cleared all safety checks
+                </span>
+              </div>
+              {flaggedPaths > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}><WarningIcon size={10} color="#B86200" /></span>
+                  <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.65)', lineHeight: 1.35 }}>
+                    <strong style={{ fontWeight: 600, color: '#B86200' }}>{flaggedPaths}</strong> path{flaggedPaths > 1 ? 's' : ''} flagged for pediatric safety review
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* Right: audit trail button */}
+            <button
+              style={{
+                padding: '0 12px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#1A7042',
+                background: 'rgba(26,112,66,0.08)',
+                border: '1px solid rgba(26,112,66,0.22)',
+                borderTop: '1px solid rgba(255,255,255,0.95)',
+                boxShadow: '0 1px 3px rgba(26,112,66,0.07), inset 0 1px 0 rgba(255,255,255,0.8)',
+                letterSpacing: '0.02em',
+                transition: 'background 120ms',
+                flexShrink: 0,
+                alignSelf: 'stretch',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(26,112,66,0.14)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(26,112,66,0.08)' }}
+            >
+              View Audit Trail
+            </button>
           </div>
 
           {/* Passed check lines (up to 3 shown collapsed) */}
           {passedChecks.slice(0, expanded ? passedChecks.length : 3).map(check => {
-            const icon =
-              check.status === 'warn' ? { glyph: '⚠', color: '#7A5500' } :
-              check.status === 'info' ? { glyph: 'ℹ', color: '#1A52A8' } :
-                                        { glyph: '✓', color: '#1A7042' }
+            const iconColor =
+              check.status === 'warn' ? '#7A5500' :
+              check.status === 'info' ? '#1A52A8' :
+                                        '#1A7042'
             return (
               <div key={check.nodeId} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 3 }}>
-                <span style={{ fontSize: check.status === 'info' ? 9.5 : 10, color: icon.color, fontWeight: 700, marginTop: 1, flexShrink: 0 }}>
-                  {icon.glyph}
+                <span style={{ display: 'flex', alignItems: 'center', marginTop: 1, flexShrink: 0 }}>
+                  {check.status === 'warn' ? <WarningIcon size={10} color={iconColor} /> : check.status === 'info' ? <WarningIcon size={10} color={iconColor} /> : <CheckIcon size={10} color={iconColor} />}
                 </span>
                 <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.52)', lineHeight: 1.35, flex: 1 }}>
                   {check.label}
@@ -96,7 +135,7 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
           {/* Violation summary line */}
           {hasViolations && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-              <span style={{ fontSize: 10, color: '#b03020', fontWeight: 700, flexShrink: 0 }}>⚠</span>
+              <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}><WarningIcon size={10} color="#b03020" /></span>
               <span style={{ fontSize: 11, color: '#b03020', lineHeight: 1.35 }}>
                 <strong style={{ fontWeight: 600 }}>{violations.length}</strong> path{violations.length > 1 ? 's' : ''} terminated by shield model
               </span>
@@ -104,8 +143,8 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
           )}
         </div>
 
-        {/* Toggle */}
-        <button
+        {/* Toggle — only shown when there's extra content to reveal */}
+        {(passedChecks.length > 3 || hasViolations) && <button
           onClick={() => setExpanded(v => !v)}
           style={{
             display: 'flex',
@@ -129,9 +168,9 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,0,0,0.60)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,0,0,0.40)' }}
         >
-          <span style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 180ms ease-out', fontSize: 8 }}>▾</span>
+          <span style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-flex', transition: 'transform 180ms ease-out' }}><ChevronDownIcon size={11} color="rgba(0,0,0,0.40)" /></span>
           {expanded ? 'Hide safety details' : 'View safety details'}
-        </button>
+        </button>}
 
         {/* Expanded: violation cards */}
         {expanded && violations.length > 0 && (
@@ -264,14 +303,14 @@ export default function SafetyComplianceSection({ safetySummary, onViewInTree, o
         {expanded && violations.length === 0 && passedChecks.length > 3 && (
           <div style={{ padding: '0 12px 10px' }}>
             {passedChecks.slice(3).map(check => {
-              const icon =
-                check.status === 'warn' ? { glyph: '⚠', color: '#7A5500' } :
-                check.status === 'info' ? { glyph: 'ℹ', color: '#1A52A8' } :
-                                          { glyph: '✓', color: '#1A7042' }
+              const iconColor2 =
+                check.status === 'warn' ? '#7A5500' :
+                check.status === 'info' ? '#1A52A8' :
+                                          '#1A7042'
               return (
                 <div key={check.nodeId} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 3 }}>
-                  <span style={{ fontSize: check.status === 'info' ? 9.5 : 10, color: icon.color, fontWeight: 700, marginTop: 1, flexShrink: 0 }}>
-                    {icon.glyph}
+                  <span style={{ display: 'flex', alignItems: 'center', marginTop: 1, flexShrink: 0 }}>
+                    {check.status === 'warn' ? <WarningIcon size={10} color={iconColor2} /> : check.status === 'info' ? <WarningIcon size={10} color={iconColor2} /> : <CheckIcon size={10} color={iconColor2} />}
                   </span>
                   <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.52)', lineHeight: 1.35, flex: 1 }}>
                     {check.label}

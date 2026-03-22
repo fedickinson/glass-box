@@ -2,11 +2,24 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { HypothesisGroup, EvidenceEntry, FocusState, DoctorAnnotation, DoctorAnnotationType, NodeSummary } from '../../types/tree'
 import AnnotationInput from './AnnotationInput'
+import { FlagIcon, PaperclipIcon, LightningIcon, StarFilledIcon, ChevronDownIcon, WarningIcon, DotFilledIcon, XIcon, ThumbUpIcon, ThumbDownIcon, PencilIcon } from '../shared/Icons'
+
+function firstSentence(text: string): string {
+  const match = text.match(/^.+?[.!?](?:\s|$)/)
+  return match ? match[0].trim() : text.slice(0, 120)
+}
+
+function firstTwoSentences(text: string): string {
+  const matches = text.match(/[^.!?]+[.!?]+/g)
+  if (!matches) return text.slice(0, 180)
+  return matches.slice(0, 2).join(' ').trim()
+}
 
 const TAG_STYLES = {
-  PRIMARY:   { text: '#1A52A8', bg: 'rgba(26,82,168,0.10)',   border: 'rgba(26,82,168,0.22)',   accent: '#1A52A8', barColor: '#1A52A8' },
-  DIVERGENT: { text: '#4A5568', bg: 'rgba(74,85,104,0.08)',   border: 'rgba(74,85,104,0.18)',   accent: '#6B7280', barColor: '#6B7280' },
-  UNLIKELY:  { text: '#7A5500', bg: 'rgba(212,149,10,0.08)',  border: 'rgba(212,149,10,0.20)',  accent: '#D4950A', barColor: '#D4950A' },
+  PRIMARY:      { text: '#1A52A8', bg: 'rgba(26,82,168,0.10)',   border: 'rgba(26,82,168,0.22)',   accent: '#1A52A8', barColor: '#1A52A8',  displayLabel: 'CONVERGING' },
+  DIVERGENT:    { text: '#2B6CB0', bg: 'rgba(43,108,176,0.07)',  border: 'rgba(43,108,176,0.18)',  accent: '#2B6CB0', barColor: '#2B6CB0',  displayLabel: 'SUPPORTED' },
+  UNLIKELY:     { text: '#7a3000', bg: 'rgba(196,90,16,0.08)',   border: 'rgba(196,90,16,0.20)',   accent: '#C45A10', barColor: '#C45A10',  displayLabel: 'FLAGGED' },
+  CONTRADICTED: { text: '#9CA3AF', bg: 'rgba(156,163,175,0.08)', border: 'rgba(156,163,175,0.18)', accent: '#9CA3AF', barColor: '#9CA3AF',  displayLabel: 'NOT SUPPORTED' },
 }
 
 // Exclusion strength metadata for UNLIKELY cards — keyed by partial diagnosis match
@@ -48,8 +61,13 @@ const ANNOTATION_COLORS: Record<string, string> = {
 }
 
 function AnnButtons({ onOpen }: { onOpen: (t: DoctorAnnotationType) => void }) {
-  const ICONS: Record<string, string>  = { flag: '⚑', context: '📎', challenge: '⚡' }
   const COLORS: Record<string, string> = { flag: '#C53D2F', context: '#3B7DD8', challenge: '#D4950A' }
+  const ICON_COMPONENTS: Record<DoctorAnnotationType, React.ReactNode> = {
+    flag: <FlagIcon size={8} color={COLORS.flag} />,
+    context: <PaperclipIcon size={8} color={COLORS.context} />,
+    challenge: <LightningIcon size={8} color={COLORS.challenge} />,
+    pin: <StarFilledIcon size={8} color="#1A52A8" />,
+  }
   return (
     <div style={{ display: 'flex', gap: 2, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
       {(['flag', 'context', 'challenge'] as DoctorAnnotationType[]).map(t => (
@@ -66,7 +84,7 @@ function AnnButtons({ onOpen }: { onOpen: (t: DoctorAnnotationType) => void }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
           }}
         >
-          {ICONS[t]}
+          {ICON_COMPONENTS[t]}
         </button>
       ))}
     </div>
@@ -177,14 +195,14 @@ function PathStepRow({
               background: `${ANNOTATION_COLORS[ann.type] ?? '#888'}08`,
               borderLeft: `2px solid ${ANNOTATION_COLORS[ann.type] ?? '#888'}45`,
             }}>
-              <span style={{ fontSize: 8.5, color: ANNOTATION_COLORS[ann.type] ?? '#888', flexShrink: 0, marginTop: 1 }}>
-                {ann.type === 'flag' ? '⚑' : ann.type === 'context' ? '📎' : '⚡'}
+              <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}>
+                {ann.type === 'flag' ? <FlagIcon size={9} color={ANNOTATION_COLORS.flag} /> : ann.type === 'context' ? <PaperclipIcon size={9} color={ANNOTATION_COLORS.context} /> : <LightningIcon size={9} color={ANNOTATION_COLORS.challenge} />}
               </span>
               <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.62)', flex: 1, lineHeight: 1.35 }}>{ann.content}</span>
               <button
                 onClick={() => onRemoveAnnotation(ann.id)}
-                style={{ fontSize: 10, color: 'rgba(0,0,0,0.28)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >×</button>
+                style={{ display: 'flex', alignItems: 'center', color: 'rgba(0,0,0,0.28)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              ><XIcon size={9} color="rgba(0,0,0,0.35)" /></button>
             </div>
           ))}
         </div>
@@ -277,6 +295,13 @@ function EvidenceBullet({ entry, variant, onClick }: { entry: EvidenceEntry; var
 }
 
 // ── Narrative helpers ────────────────────────────────────────────
+// Splits prose at real sentence boundaries (punctuation + space + capital),
+// avoiding false splits on abbreviations like "Mateo R., 8 y/o".
+function splitSentences(text: string): string[] {
+  const parts = text.split(/(?<=[.!?])\s+(?=[A-Z])/)
+  return parts.map(s => s.trim()).filter(Boolean)
+}
+
 // Uses evidence HEADLINES (what was found) — never source document names.
 function buildSupportingNarrative(group: HypothesisGroup): string {
   const base = group.rationale.replace(/\.$/, '')
@@ -302,10 +327,10 @@ function buildChallengesNarrative(group: HypothesisGroup): string {
 
 // ── Next step zone (driven by group.nextStep from data) ─────────
 function NextStepZone({ nextStep, accentColor }: { nextStep: string; accentColor: string }) {
+  const sentences = splitSentences(nextStep)
   return (
     <div style={{
       margin: '6px 11px 10px',
-      display: 'flex', alignItems: 'flex-start', gap: 8,
       padding: '8px 10px',
       borderRadius: 7,
       background: `${accentColor}08`,
@@ -314,13 +339,25 @@ function NextStepZone({ nextStep, accentColor }: { nextStep: string; accentColor
     }}>
       <span style={{
         fontSize: 8, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-        color: accentColor, flexShrink: 0, marginTop: 2,
+        color: accentColor, display: 'block', marginBottom: 6,
       }}>
-        Next step for this diagnosis
+        Investigate
       </span>
-      <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.65)', lineHeight: 1.5 }}>
-        {nextStep}
-      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {sentences.map((sentence, i) => (
+          <div key={i} style={{
+            display: 'flex', gap: 7, alignItems: 'flex-start',
+          }}>
+            <span style={{
+              width: 4, height: 4, borderRadius: '50%', flexShrink: 0, marginTop: 6,
+              background: `${accentColor}70`,
+            }} />
+            <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.65)', lineHeight: 1.58 }}>
+              {sentence}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -340,10 +377,10 @@ function ToggleBtn({ open, label, closedLabel, onClick }: { open: boolean; label
       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,0,0,0.36)' }}
     >
       <span style={{
-        display: 'inline-block', fontSize: 7.5,
+        display: 'inline-flex',
         transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
         transition: 'transform 160ms ease-out',
-      }}>▾</span>
+      }}><ChevronDownIcon size={11} color="rgba(0,0,0,0.36)" /></span>
       {open ? (closedLabel ?? label) : label}
     </button>
   )
@@ -363,9 +400,9 @@ interface Props {
   onNodeHoverEnter: (nodeId: string) => void
   onNodeHoverLeave: () => void
   onEvidenceNodeClick: (nodeId: string) => void
-  onPruneBranch: (branchId: string) => void
   onAnnotate: (nodeId: string, type: DoctorAnnotationType, content: string) => void
   onRemoveAnnotation: (annotationId: string) => void
+  onAddReview: (diagnosis: string, rating: 'up' | 'down' | null, text: string) => void
 }
 
 export default function HypothesisCard({
@@ -382,13 +419,17 @@ export default function HypothesisCard({
   onNodeHoverEnter,
   onNodeHoverLeave,
   onEvidenceNodeClick,
-  onPruneBranch,
   onAnnotate,
   onRemoveAnnotation,
+  onAddReview,
 }: Props) {
-  const [showEvidenceDetail, setShowEvidenceDetail] = useState(false)
   const [showPaths, setShowPaths] = useState(false)
   const [expandedPathIds, setExpandedPathIds] = useState<Set<string>>(new Set())
+  const [thumbRating, setThumbRating] = useState<'up' | 'down' | null>(null)
+  const [showReviewInput, setShowReviewInput] = useState(false)
+  const [reviewDraft, setReviewDraft] = useState('')
+  const [submittedReview, setSubmittedReview] = useState<string | null>(null)
+  const reviewInputRef = useRef<HTMLTextAreaElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
   const isFocused =
@@ -403,11 +444,6 @@ export default function HypothesisCard({
     : undefined
   const exclusionInfo = exclusionKey ? EXCLUSION_STRENGTH[exclusionKey] : null
 
-  const supportingNarrative = buildSupportingNarrative(group)
-  const challengesNarrative = buildChallengesNarrative(group)
-
-  const hasEvidenceFor = group.evidenceFor.length > 0
-  const hasEvidenceAgainst = group.evidenceAgainst.length > 0
   const hasBranchDetail = group.branches.some(b => b.nodeSummaries.length > 0)
   const pathCount = group.branches.filter(b => b.nodeSummaries.length > 0).length
 
@@ -426,6 +462,23 @@ export default function HypothesisCard({
     })
   }
 
+  function handleThumb(rating: 'up' | 'down') {
+    const next = thumbRating === rating ? null : rating
+    setThumbRating(next)
+    if (next !== null) {
+      onAddReview(group.diagnosis, next, submittedReview ?? '')
+    }
+  }
+
+  function handleSubmitReview() {
+    const text = reviewDraft.trim()
+    if (!text) return
+    setSubmittedReview(text)
+    setShowReviewInput(false)
+    setReviewDraft('')
+    onAddReview(group.diagnosis, thumbRating, text)
+  }
+
   // Annotation map
   const annotationsByNode = new Map<string, DoctorAnnotation[]>()
   annotations.forEach(a => {
@@ -441,21 +494,32 @@ export default function HypothesisCard({
         borderRadius: attachedToHeader ? '0 0 14px 14px' : 9,
         border: attachedToHeader
           ? '1px solid rgba(26,82,168,0.12)'
+          : group.tag === 'CONTRADICTED'
+          ? '1px dashed rgba(0,0,0,0.13)'
           : isFocused ? `1.5px solid ${colors.accent}50` : '1px solid rgba(0,0,0,0.07)',
         borderLeft: attachedToHeader
           ? '1px solid rgba(26,82,168,0.12)'
+          : group.tag === 'CONTRADICTED'
+          ? '3px dashed rgba(156,163,175,0.45)'
           : `3px solid ${isFocused ? colors.accent : colors.accent + '55'}`,
-        borderTop: attachedToHeader ? 'none' : '1px solid rgba(255,255,255,1)',
+        borderTop: attachedToHeader ? 'none' : group.tag === 'CONTRADICTED' ? '1px dashed rgba(0,0,0,0.13)' : '1px solid rgba(255,255,255,1)',
         background: attachedToHeader
           ? 'linear-gradient(148deg, rgba(232,242,255,0.5) 0%, rgba(242,248,255,0.7) 100%)'
+          : group.tag === 'CONTRADICTED'
+          ? 'rgba(245,246,247,0.7)'
+          : group.tag === 'DIVERGENT'
+          ? 'linear-gradient(148deg, rgba(43,108,176,0.04) 0%, rgba(241,246,255,0.85) 100%)'
           : isFocused
           ? `linear-gradient(148deg, ${colors.accent}10 0%, rgba(255,255,255,0.92) 100%)`
           : 'linear-gradient(148deg, rgba(255,255,255,0.96) 0%, rgba(246,248,255,0.92) 100%)',
         boxShadow: attachedToHeader
           ? '0 2px 12px rgba(26,82,168,0.07)'
+          : group.tag === 'CONTRADICTED'
+          ? 'none'
           : isFocused
           ? `0 0 0 2px ${colors.accent}14, 0 1px 3px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1)`
           : '0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)',
+        opacity: 1,
         marginBottom: 10,
         transition: 'all 200ms ease-out',
         overflow: 'hidden',
@@ -469,27 +533,34 @@ export default function HypothesisCard({
           padding: '7px 9px', cursor: 'pointer', minWidth: 0,
         }}
       >
-        {/* Tag — only shown for PRIMARY (others are under "Less likely but valid" header) */}
-        {group.tag === 'PRIMARY' && (
+        {/* Tag badge — hypothesis status for all non-header cards */}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0, whiteSpace: 'nowrap',
+        }}>
           <span style={{
-            fontSize: 7, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
+            fontSize: 7, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase',
+            color: 'rgba(0,0,0,0.35)',
+          }}>
+            Hypothesis:
+          </span>
+          <span style={{
+            fontSize: 7, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase',
             padding: '1.5px 4px', borderRadius: 3,
             background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
-            flexShrink: 0,
           }}>
-            {group.tag}
+            {colors.displayLabel}
           </span>
-        )}
+        </span>
 
         {/* Diagnosis name */}
         <span style={{
           fontSize: 12.5, fontWeight: 500,
-          color: '#111', lineHeight: 1.2,
-          flex: 1, minWidth: 0,
+          color: group.tag === 'CONTRADICTED' ? 'rgba(0,0,0,0.55)' : '#111',
+          lineHeight: 1.2, flex: 1, minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {group.diagnosis}
-          {isPinned && <span style={{ fontSize: 9, color: '#1A52A8', marginLeft: 5 }}>★</span>}
+          {isPinned && <span style={{ marginLeft: 5, display: 'inline-flex', verticalAlign: 'middle' }}><StarFilledIcon size={9} color="#1A52A8" /></span>}
         </span>
 
         {/* Path count pill */}
@@ -517,149 +588,332 @@ export default function HypothesisCard({
 
         {/* Chevron */}
         <span style={{
-          fontSize: 8, color: 'rgba(0,0,0,0.25)',
+          color: 'rgba(0,0,0,0.25)',
           transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 180ms ease-out',
-          display: 'inline-block', flexShrink: 0,
+          display: 'inline-flex', flexShrink: 0,
         }}>
-          ▾
+          <ChevronDownIcon size={12} color="rgba(0,0,0,0.25)" />
         </span>
       </div>}
 
+      {/* ── COLLAPSED RATIONALE SNIPPET — first sentence of what/why ── */}
+      {!attachedToHeader && !isExpanded && group.rationale && group.tag !== 'CONTRADICTED' && !group.safetyFlags?.length && (
+        <div
+          onClick={onToggleExpand}
+          style={{ padding: '0 9px 6px', cursor: 'pointer' }}
+        >
+          <span style={{
+            fontSize: 11, lineHeight: 1.45,
+            color: 'rgba(0,0,0,0.50)',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          } as React.CSSProperties}>
+            {firstSentence(group.rationale)}
+          </span>
+        </div>
+      )}
+
+      {/* ── COLLAPSED PREVIEW — investigative step or "not supported" reason ── */}
+      {!attachedToHeader && !isExpanded && (group.nextStep || group.whyNotSupported || group.safetyFlags?.length) && (
+        <div
+          onClick={onToggleExpand}
+          style={{
+            display: 'flex', alignItems: 'baseline', gap: 6,
+            padding: '0 9px 8px', cursor: 'pointer',
+          }}
+        >
+          <span style={{
+            fontSize: 7.5, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
+            color: group.tag === 'CONTRADICTED' ? '#9CA3AF' : group.safetyFlags?.length ? '#B86200' : colors.accent,
+            flexShrink: 0,
+          }}>
+            {group.tag === 'CONTRADICTED' ? 'Not supported' : group.safetyFlags?.length ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><WarningIcon size={9} color="#B86200" /> Safety review</span> : 'Investigate'}
+          </span>
+          <span style={{
+            fontSize: 11,
+            color: group.tag === 'CONTRADICTED' ? 'rgba(0,0,0,0.60)' : group.safetyFlags?.length ? 'rgba(0,0,0,0.62)' : 'rgba(0,0,0,0.48)',
+            lineHeight: 1.4, flex: 1, minWidth: 0,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {group.tag === 'CONTRADICTED'
+              ? firstSentence(group.whyNotSupported ?? '')
+              : group.safetyFlags?.length
+              ? firstSentence(group.safetyFlags[0].label)
+              : firstSentence(group.nextStep ?? '')}
+          </span>
+        </div>
+      )}
 
       {/* ── EXPANDED CONTENT ── */}
       {isExpanded && (
         <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)' }}>
 
-          {/* ── PRIMARY metadata: Convergence ── */}
-          {group.tag === 'PRIMARY' && group.pathCount > 1 && (
-            <div style={{
-              padding: '7px 11px',
-              borderBottom: '1px solid rgba(0,0,0,0.05)',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.45)', flexShrink: 0, minWidth: 88 }}>
-                Convergence
+          {/* ── DOCTOR REVIEW BAR — thumbs + review button, top of drawer ── */}
+          {!attachedToHeader && (
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 11px 7px',
+                borderBottom: '1px solid rgba(0,0,0,0.05)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.04em', marginRight: 2 }}>
+                Your assessment:
               </span>
-              <span style={{
-                fontSize: 8.5, fontWeight: 700, letterSpacing: '0.04em',
-                color: '#1A6E3C', background: 'rgba(26,110,60,0.1)',
-                border: '1px solid rgba(26,110,60,0.22)', borderRadius: 3,
-                padding: '1px 5px', flexShrink: 0,
-              }}>
-                {group.pathCount} paths
-              </span>
-              <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.38)' }}>
-                {group.pathCount} of {group.totalPaths} independent reasoning paths agree
-              </span>
+              {/* Thumbs up */}
+              <button
+                onClick={() => handleThumb('up')}
+                title="Agree with this hypothesis"
+                style={{
+                  height: 22, borderRadius: 5, border: thumbRating === 'up' ? '1px solid rgba(26,110,60,0.30)' : '1px solid rgba(0,0,0,0.09)',
+                  cursor: 'pointer', padding: '0 7px',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: thumbRating === 'up' ? 'rgba(26,110,60,0.10)' : 'rgba(0,0,0,0.02)',
+                  fontSize: 9.5, fontWeight: thumbRating === 'up' ? 700 : 500,
+                  color: thumbRating === 'up' ? '#1A6E3C' : 'rgba(0,0,0,0.40)',
+                  transition: 'all 120ms',
+                }}
+              >
+                <ThumbUpIcon size={9} color={thumbRating === 'up' ? '#1A6E3C' : 'rgba(0,0,0,0.35)'} />
+                Agree
+              </button>
+              {/* Thumbs down */}
+              <button
+                onClick={() => handleThumb('down')}
+                title="Disagree with this hypothesis"
+                style={{
+                  height: 22, borderRadius: 5, border: thumbRating === 'down' ? '1px solid rgba(197,61,47,0.28)' : '1px solid rgba(0,0,0,0.09)',
+                  cursor: 'pointer', padding: '0 7px',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: thumbRating === 'down' ? 'rgba(197,61,47,0.08)' : 'rgba(0,0,0,0.02)',
+                  fontSize: 9.5, fontWeight: thumbRating === 'down' ? 700 : 500,
+                  color: thumbRating === 'down' ? '#C53D2F' : 'rgba(0,0,0,0.40)',
+                  transition: 'all 120ms',
+                }}
+              >
+                <ThumbDownIcon size={9} color={thumbRating === 'down' ? '#C53D2F' : 'rgba(0,0,0,0.35)'} />
+                Disagree
+              </button>
+              {/* Review button */}
+              <button
+                onClick={() => { setShowReviewInput(v => !v); setTimeout(() => reviewInputRef.current?.focus(), 50) }}
+                style={{
+                  height: 22, borderRadius: 5,
+                  border: submittedReview ? '1px solid rgba(26,82,168,0.22)' : showReviewInput ? '1px solid rgba(26,82,168,0.22)' : '1px solid rgba(0,0,0,0.09)',
+                  cursor: 'pointer', padding: '0 7px',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  background: showReviewInput ? 'rgba(26,82,168,0.08)' : submittedReview ? 'rgba(26,82,168,0.06)' : 'rgba(0,0,0,0.02)',
+                  fontSize: 9.5, fontWeight: submittedReview || showReviewInput ? 700 : 500,
+                  color: submittedReview || showReviewInput ? '#1A52A8' : 'rgba(0,0,0,0.40)',
+                  transition: 'all 120ms',
+                }}
+              >
+                <PencilIcon size={8} color={submittedReview || showReviewInput ? '#1A52A8' : 'rgba(0,0,0,0.35)'} />
+                {submittedReview ? 'Edit review' : 'Give your review'}
+              </button>
             </div>
           )}
 
-          {/* ── ZONE 1: Narrative evidence summary ── */}
-          {(hasEvidenceFor || hasEvidenceAgainst) && (
-            <div style={{ padding: '10px 11px 6px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-
-              {hasEvidenceFor && (
-                <div style={{
-                  borderRadius: 7,
-                  background: 'rgba(26,110,60,0.09)',
-                  border: '1px solid rgba(26,110,60,0.18)',
-                  borderLeft: '3px solid rgba(26,110,60,0.45)',
-                  padding: '8px 10px',
-                }}>
-                  <div style={{
-                    fontSize: 7.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
-                    color: '#1A5E35', marginBottom: 4,
-                  }}>
-                    Evidence supporting ({group.evidenceFor.length})
-                  </div>
-                  <div style={{ fontSize: 11.5, lineHeight: 1.58, color: 'rgba(0,0,0,0.68)' }}>
-                    {supportingNarrative}
-                  </div>
-                </div>
-              )}
-
-              {hasEvidenceAgainst && (
-                <div style={{
-                  borderRadius: 7,
-                  background: 'rgba(180,100,10,0.08)',
-                  border: '1px solid rgba(180,100,10,0.18)',
-                  borderLeft: '3px solid rgba(180,100,10,0.42)',
-                  padding: '8px 10px',
-                }}>
-                  <div style={{
-                    fontSize: 7.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
-                    color: '#7A5500', marginBottom: 4,
-                  }}>
-                    Key challenges ({group.evidenceAgainst.length})
-                  </div>
-                  <div style={{ fontSize: 11.5, lineHeight: 1.58, color: 'rgba(0,0,0,0.62)' }}>
-                    {challengesNarrative}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── ZONE 2: Detailed evidence (collapsed by default) ── */}
-          {(hasEvidenceFor || hasEvidenceAgainst) && (
-            <div style={{ padding: '2px 11px 6px' }}>
-              <ToggleBtn
-                open={showEvidenceDetail}
-                label={`Show detailed evidence`}
-                closedLabel="Hide detailed evidence"
-                onClick={() => setShowEvidenceDetail(!showEvidenceDetail)}
+          {/* ── REVIEW INPUT — expands below the bar when Review button clicked ── */}
+          {!attachedToHeader && showReviewInput && (
+            <div
+              style={{
+                margin: '0 10px 8px',
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: 'rgba(26,82,168,0.04)',
+                border: '1px solid rgba(26,82,168,0.13)',
+                borderLeft: '2.5px solid rgba(26,82,168,0.32)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <textarea
+                ref={reviewInputRef}
+                value={reviewDraft}
+                onChange={e => setReviewDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmitReview(); if (e.key === 'Escape') setShowReviewInput(false) }}
+                placeholder="Add your clinical assessment of this hypothesis..."
+                rows={2}
+                style={{
+                  width: '100%', resize: 'vertical', padding: '5px 8px', borderRadius: 6,
+                  border: '1px solid rgba(26,82,168,0.16)', background: 'rgba(255,255,255,0.95)',
+                  fontSize: 11.5, lineHeight: 1.5, color: '#111', outline: 'none',
+                  fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
               />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={!reviewDraft.trim()}
+                  style={{
+                    fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 5,
+                    border: 'none', cursor: reviewDraft.trim() ? 'pointer' : 'default',
+                    background: reviewDraft.trim() ? '#1A52A8' : 'rgba(0,0,0,0.08)',
+                    color: reviewDraft.trim() ? '#fff' : 'rgba(0,0,0,0.3)',
+                    transition: 'all 120ms',
+                  }}
+                >
+                  Save to audit trail
+                </button>
+                <button
+                  onClick={() => setShowReviewInput(false)}
+                  style={{
+                    fontSize: 10, fontWeight: 500, padding: '3px 8px', borderRadius: 5,
+                    background: 'transparent', color: 'rgba(0,0,0,0.4)', border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <span style={{ fontSize: 9, color: 'rgba(0,0,0,0.28)', marginLeft: 'auto' }}>⌘↵ to save</span>
+              </div>
+            </div>
+          )}
 
-              {showEvidenceDetail && (
-                <div style={{ marginTop: 7 }}>
-                  {hasEvidenceFor && (
-                    <div style={{ marginBottom: hasEvidenceAgainst ? 8 : 0 }}>
-                      <div style={{
-                        fontSize: 7.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
-                        color: '#1A7042', marginBottom: 4, paddingLeft: 2,
-                      }}>
-                        For
-                      </div>
-                      {group.evidenceFor.map(entry => (
-                        <EvidenceBullet
-                          key={entry.nodeId}
-                          entry={entry}
-                          variant="for"
-                          onClick={() => onEvidenceNodeClick(entry.nodeId)}
-                        />
-                      ))}
-                    </div>
+          {/* ── SUBMITTED REVIEW — shown inline after submission ── */}
+          {!attachedToHeader && submittedReview && !showReviewInput && (
+            <div
+              style={{
+                margin: '0 10px 8px',
+                padding: '6px 9px',
+                borderRadius: 7,
+                background: 'rgba(26,82,168,0.04)',
+                border: '1px solid rgba(26,82,168,0.11)',
+                borderLeft: '2.5px solid rgba(26,82,168,0.26)',
+                display: 'flex', alignItems: 'flex-start', gap: 6,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1A52A8', marginBottom: 2 }}>
+                  Your review
+                  {thumbRating && (
+                    <span style={{ marginLeft: 5, fontWeight: 600, fontSize: 9 }}>
+                      {thumbRating === 'up'
+                        ? <span style={{ color: '#1A6E3C' }}>↑ Agreed</span>
+                        : <span style={{ color: '#C53D2F' }}>↓ Disagreed</span>}
+                    </span>
                   )}
-                  {hasEvidenceAgainst && (
-                    <div>
-                      <div style={{
-                        fontSize: 7.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
-                        color: '#7A3A1A', marginBottom: 4, paddingLeft: 2,
-                      }}>
-                        Against
-                      </div>
-                      {group.evidenceAgainst.map(entry => (
-                        <EvidenceBullet
-                          key={entry.nodeId}
-                          entry={entry}
-                          variant="against"
-                          onClick={() => onEvidenceNodeClick(entry.nodeId)}
-                        />
-                      ))}
-                    </div>
-                  )}
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.65)', lineHeight: 1.45 }}>{submittedReview}</div>
+              </div>
+              <button
+                onClick={() => { setSubmittedReview(null); setReviewDraft('') }}
+                style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+              >
+                <XIcon size={9} color="rgba(0,0,0,0.28)" />
+              </button>
+            </div>
+          )}
+
+          {/* ── RATIONALE — what this hypothesis is and why the system reached it ── */}
+          {group.tag !== 'CONTRADICTED' && !group.safetyFlags?.length && group.rationale && (
+            <div style={{ padding: '10px 11px 4px' }}>
+              {splitSentences(group.rationale).map((sentence, i) => (
+                <div key={i} style={{
+                  fontSize: 12, lineHeight: 1.65, color: 'rgba(0,0,0,0.62)',
+                  marginTop: i > 0 ? 7 : 0,
+                  paddingLeft: i > 0 ? 10 : 0,
+                  borderLeft: i > 0 ? '2px solid rgba(0,0,0,0.08)' : 'none',
+                }}>
+                  {sentence}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── WHY NOT SUPPORTED — CONTRADICTED primary content ── */}
+          {group.tag === 'CONTRADICTED' && group.whyNotSupported && (
+            <div style={{ padding: '10px 11px 6px' }}>
+              <div style={{
+                borderRadius: 7,
+                background: 'rgba(156,163,175,0.10)',
+                border: '1px solid rgba(156,163,175,0.22)',
+                borderLeft: '3px solid rgba(156,163,175,0.5)',
+                padding: '8px 10px',
+              }}>
+                <div style={{
+                  fontSize: 7.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
+                  color: '#6B7280', marginBottom: 4,
+                }}>
+                  Why not supported
+                </div>
+                {splitSentences(group.whyNotSupported).map((sentence, i) => (
+                  <div key={i} style={{
+                    fontSize: 12, lineHeight: 1.62, color: 'rgba(0,0,0,0.72)',
+                    marginTop: i > 0 ? 5 : 0,
+                    display: 'flex', gap: 6, alignItems: 'flex-start',
+                  }}>
+                    <span style={{ fontSize: 9, color: 'rgba(0,0,0,0.25)', flexShrink: 0, marginTop: 3 }}>—</span>
+                    <span>{sentence}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── SAFETY FLAGS + GATED NEXT STEP ── */}
+          {group.safetyFlags && group.safetyFlags.length > 0 && (
+            <div style={{ padding: '8px 11px 10px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+              <div style={{
+                borderRadius: 7,
+                background: 'rgba(184,98,0,0.07)',
+                border: '1px solid rgba(184,98,0,0.22)',
+                borderLeft: '3px solid rgba(184,98,0,0.60)',
+                padding: '8px 10px',
+                marginBottom: group.nextStep ? 8 : 0,
+              }}>
+                <div style={{
+                  fontSize: 7.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase',
+                  color: '#8B4800', marginBottom: 5,
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><WarningIcon size={10} color="#8B4800" /> Pediatric Safety Review Required</span>
+                </div>
+                {group.safetyFlags.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: i < group.safetyFlags!.length - 1 ? 4 : 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}><DotFilledIcon size={8} color="#C53D2F" /></span>
+                    <span style={{ fontSize: 12, lineHeight: 1.50, color: 'rgba(0,0,0,0.75)' }}>{f.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {group.nextStep && (
+                <div style={{
+                  borderRadius: 7,
+                  background: 'rgba(0,0,0,0.025)',
+                  border: '1px solid rgba(0,0,0,0.10)',
+                  borderLeft: '3px solid rgba(0,0,0,0.18)',
+                  padding: '8px 10px',
+                  opacity: 0.70,
+                }}>
+                  <div style={{
+                    fontSize: 7.5, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
+                    color: 'rgba(0,0,0,0.38)', marginBottom: 4,
+                  }}>
+                    Investigate — pending specialist review
+                  </div>
+                  <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', lineHeight: 1.55 }}>
+                    {group.nextStep}
+                  </span>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── ZONE 3: Reasoning paths (collapsed by default) ── */}
-          {hasBranchDetail && (
+          {/* ── NEXT STEP — standard (non-safety-flagged, non-CONTRADICTED) ── */}
+          {!group.safetyFlags?.length && group.nextStep && group.tag !== 'CONTRADICTED' && (
+            <div style={{ padding: '4px 11px 10px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+              <NextStepZone nextStep={group.nextStep} accentColor={colors.accent} />
+            </div>
+          )}
+
+
+          {/* ── ZONE 3: Reasoning paths — removed ── */}
+          {false && hasBranchDetail && (
             <div style={{
               padding: '2px 11px 8px',
-              borderTop: (hasEvidenceFor || hasEvidenceAgainst) ? '1px solid rgba(0,0,0,0.05)' : undefined,
-              marginTop: (hasEvidenceFor || hasEvidenceAgainst) ? 4 : 0,
+              borderTop: '1px solid rgba(0,0,0,0.05)',
+              marginTop: 4,
             }}>
               <ToggleBtn
                 open={showPaths}
@@ -706,11 +960,11 @@ export default function HypothesisCard({
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                           >
                             <span style={{
-                              display: 'inline-block', fontSize: 7,
+                              display: 'inline-flex',
                               transform: isPathExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
                               transition: 'transform 160ms ease-out',
                               color: 'rgba(0,0,0,0.28)', flexShrink: 0,
-                            }}>▶</span>
+                            }}><ChevronDownIcon size={10} color="rgba(0,0,0,0.28)" /></span>
                             <span style={{
                               width: 5, height: 5, borderRadius: '50%',
                               background: branch.isPrimary ? '#1A52A8' : colors.accent,
@@ -737,21 +991,6 @@ export default function HypothesisCard({
                             View →
                           </button>
 
-                          {!branch.isPrimary && (
-                            <button
-                              onClick={e => { e.stopPropagation(); onPruneBranch(branch.branchId) }}
-                              title="Prune this branch"
-                              style={{
-                                fontSize: 9, color: 'rgba(0,0,0,0.22)',
-                                background: 'transparent', border: 'none', cursor: 'pointer',
-                                padding: '2px 4px', flexShrink: 0,
-                              }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(185,50,38,0.6)' }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,0,0,0.22)' }}
-                            >
-                              ✕
-                            </button>
-                          )}
                         </div>
 
                         {/* Convergence note */}
@@ -816,10 +1055,6 @@ export default function HypothesisCard({
                 </div>
               )}
             </div>
-          )}
-          {/* ── ZONE 4: Next step ── */}
-          {group.nextStep && (
-            <NextStepZone nextStep={group.nextStep} accentColor={colors.accent} />
           )}
         </div>
       )}

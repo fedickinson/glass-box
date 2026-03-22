@@ -10,12 +10,12 @@ import { TreeNode, PositionedNode, PositionedTree, Connection, Convergence } fro
 // ── Layout constants (exported so components can size SVG canvas) ──
 export const NODE_W = 220
 export const NODE_W_ASSESSMENT = 264 // first reasoning node — wider to show patient context
-export const NODE_W_TERMINAL = 200   // terminal verdict cards — compact label only, detail in panel
+export const NODE_W_TERMINAL = 210   // terminal verdict cards — compact label only, detail in panel
 export const NODE_H = 80
 export const NODE_H_DECISION = 108
 export const NODE_H_COMPLIANCE = 64  // preflight/terminal safety checks — compact
 export const NODE_H_ASSESSMENT = 128 // first reasoning node — expanded with patient context + vitals
-export const NODE_H_TERMINAL = 80    // terminal verdict cards — compact, detail in BranchConclusionPanel
+export const NODE_H_TERMINAL = 120   // terminal verdict cards — taller for visual distinction
 const DEPTH_STEP = NODE_W + 90   // horizontal distance between depth levels
 const SIBLING_STEP = NODE_H + 20 // vertical distance between adjacent nodes
 const FAN_SPACING = NODE_H_COMPLIANCE + 18 // vertical gap between fanned preflight nodes

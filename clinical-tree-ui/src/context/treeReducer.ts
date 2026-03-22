@@ -1,6 +1,7 @@
 /** treeReducer — handles all TreeAction types for the clinical reasoning tree UI state */
-import { TreeUIState, TreeAction, PositionedNode, AuditEntry } from '../types/tree'
+import { TreeUIState, TreeAction, PositionedNode, AuditEntry, AnimationBeat } from '../types/tree'
 import { buildBranchPath } from '../data/transformer'
+import { buildAnimationSequence } from '../data/buildAnimationSequence'
 
 function makeAuditId() {
   return `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -28,7 +29,8 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       if (state.growth.mode === 'paused_at_decision' || state.growth.mode === 'paused_manual') {
         nextGrowth = {
           mode: 'paused_exploring',
-          cursor: state.growth.cursor,
+          beatIndex: state.growth.beatIndex,
+          sequence: state.growth.sequence,
           previousFocusMode: state.growth.mode,
         }
       }
@@ -285,6 +287,7 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
     // ── Growth playback ────────────────────────────────────────────
 
     case 'START_GROWTH': {
+      const sequence = buildAnimationSequence()
       const entry = audit({
         type: 'system',
         summary: 'System initiated reasoning exploration',
@@ -294,7 +297,8 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       })
       return {
         ...state,
-        growth: { mode: 'playing', cursor: 0, speed: action.speed ?? 200 },
+        focusState: { mode: 'idle' },
+        growth: { mode: 'playing', beatIndex: 0, sequence },
         auditLog: [...state.auditLog, entry],
       }
     }
@@ -303,63 +307,37 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
       if (state.growth.mode !== 'playing') return state
       return {
         ...state,
-        growth: { mode: 'paused_manual', cursor: state.growth.cursor },
+        growth: { mode: 'paused_manual', beatIndex: state.growth.beatIndex, sequence: state.growth.sequence },
       }
     }
 
     case 'RESUME_GROWTH': {
       const g = state.growth
-      if (g.mode === 'paused_at_decision') {
-        // If user clicked a branch while paused, carry that choice forward so
-        // the camera follows it.
-        const chosenBranchId =
-          state.focusState.mode === 'branch_focused'
-            ? state.focusState.branchId
-            : undefined
-        return {
-          ...state,
-          growth: { mode: 'playing', cursor: g.cursor, speed: 200, chosenBranchId },
-          focusState: { mode: 'idle' },
-        }
+      if (g.mode !== 'paused_at_decision' && g.mode !== 'paused_manual') return state
+      return {
+        ...state,
+        growth: { mode: 'playing', beatIndex: g.beatIndex, sequence: g.sequence },
+        // Clear focus when resuming so tree is unobstructed
+        focusState: { mode: 'idle' },
       }
-      if (g.mode === 'paused_manual') {
-        return { ...state, growth: { mode: 'playing', cursor: g.cursor, speed: 200 } }
-      }
-      if (g.mode === 'paused_exploring') {
-        // Same: if the user navigated to a branch, keep following it
-        const chosenBranchId =
-          state.focusState.mode === 'branch_focused'
-            ? state.focusState.branchId
-            : undefined
-        return {
-          ...state,
-          growth: { mode: 'playing', cursor: g.cursor, speed: 200, chosenBranchId },
-          focusState: { mode: 'idle' },
-        }
-      }
-      return state
     }
 
     case 'STEP_FORWARD': {
-      const cursor = state.growth.mode !== 'idle' ? (state.growth as { cursor: number }).cursor : 0
-      const maxCursor = Math.max(0, state.tree.nodes.length - 1)
-      return {
-        ...state,
-        growth: { mode: 'paused_manual', cursor: Math.min(cursor + 1, maxCursor) },
-      }
+      const g = state.growth
+      if (g.mode === 'idle') return state
+      const seq = (g as { sequence: AnimationBeat[] }).sequence
+      const cur = (g as { beatIndex: number }).beatIndex
+      const next = Math.min(cur + 1, seq.length - 1)
+      return { ...state, growth: { mode: 'paused_manual', beatIndex: next, sequence: seq } }
     }
 
     case 'STEP_BACKWARD': {
-      const cursor = state.growth.mode !== 'idle' ? (state.growth as { cursor: number }).cursor : 0
-      return {
-        ...state,
-        growth: { mode: 'paused_manual', cursor: Math.max(cursor - 1, 0) },
-      }
-    }
-
-    case 'SET_GROWTH_SPEED': {
-      if (state.growth.mode !== 'playing') return state
-      return { ...state, growth: { ...state.growth, speed: action.speed } }
+      const g = state.growth
+      if (g.mode === 'idle') return state
+      const seq = (g as { sequence: AnimationBeat[] }).sequence
+      const cur = (g as { beatIndex: number }).beatIndex
+      const prev = Math.max(cur - 1, 0)
+      return { ...state, growth: { mode: 'paused_manual', beatIndex: prev, sequence: seq } }
     }
 
     case 'SKIP_TO_END': {
@@ -379,9 +357,12 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
 
     case 'GROWTH_TICK': {
       if (state.growth.mode !== 'playing') return state
-      const maxCursor = state.tree.nodes.length - 1
-      const nextCursor = state.growth.cursor + 1
-      if (nextCursor > maxCursor) {
+      const g = state.growth
+      const sequence = g.sequence
+      const nextBeatIndex = g.beatIndex + 1
+
+      // Sequence complete — go idle
+      if (nextBeatIndex >= sequence.length) {
         const entry = audit({
           type: 'system',
           summary: `System explored ${state.tree.branchIds.length} branches`,
@@ -395,64 +376,36 @@ export function treeReducer(state: TreeUIState, action: TreeAction): TreeUIState
           auditLog: [...state.auditLog, entry],
         }
       }
-      const orderedNodes = [...state.tree.nodes].sort(
-        (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
-      )
-      const nextNode = orderedNodes[nextCursor]
-      if (nextNode?.is_decision_point) {
-        // Advance cursor past all immediate children of this decision so they
-        // all pop up simultaneously at the moment of pause — showing the fork.
-        const childIds = new Set(nextNode.children)
-        let forkCursor = nextCursor
-        orderedNodes.forEach((n, i) => {
-          if (childIds.has(n.id)) forkCursor = Math.max(forkCursor, i)
-        })
+
+      const nextBeat = sequence[nextBeatIndex]
+
+      // Auto-pause at decision points and convergence moments
+      if (nextBeat.autoPause) {
+        const decisionNodeId = nextBeat.isDecisionReveal
+          ? (nextBeat.visibleIds[nextBeat.visibleIds.length - 1] ?? '')
+          : ''
         const entry = audit({
           type: 'system',
-          summary: `Decision point: ${nextNode.headline}`,
+          summary: nextBeat.phase ?? `Paused at beat ${nextBeatIndex}`,
           detail: null,
-          nodeId: nextNode.id,
-          branchId: nextNode.branch_id,
+          nodeId: decisionNodeId || null,
+          branchId: null,
         })
         return {
           ...state,
           growth: {
             mode: 'paused_at_decision',
-            cursor: forkCursor,
-            decisionNodeId: nextNode.id,
+            beatIndex: nextBeatIndex,
+            sequence,
+            decisionNodeId,
           },
           auditLog: [...state.auditLog, entry],
         }
       }
-      // Log tool and citation nodes as they appear
-      if (nextNode?.type === 'tool' || nextNode?.type === 'citation') {
-        const entry = audit({
-          type: 'system',
-          summary: nextNode.type === 'tool'
-            ? `System queried: ${nextNode.tool_name ?? nextNode.headline}`
-            : `System referenced: ${nextNode.source ?? nextNode.headline}`,
-          detail: null,
-          nodeId: nextNode.id,
-          branchId: nextNode.branch_id,
-        })
-        return {
-          ...state,
-          growth: { ...state.growth, cursor: nextCursor },
-          auditLog: [...state.auditLog, entry],
-        }
-      }
-      return { ...state, growth: { ...state.growth, cursor: nextCursor } }
-    }
 
-    case 'GROWTH_AUTO_PAUSE': {
-      if (state.growth.mode !== 'playing') return state
       return {
         ...state,
-        growth: {
-          mode: 'paused_at_decision',
-          cursor: state.growth.cursor,
-          decisionNodeId: action.decisionNodeId,
-        },
+        growth: { mode: 'playing', beatIndex: nextBeatIndex, sequence },
       }
     }
 

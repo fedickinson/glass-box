@@ -132,3 +132,84 @@ export function NodeIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 
     </svg>
   )
 }
+
+export function StarIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M8 1.5l1.8 3.6 4 .6-2.9 2.8.7 4L8 10.4l-3.6 1.9.7-4L2.2 5.7l4-.6L8 1.5z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function StarFilledIcon({ size = 14, color = 'currentColor' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M8 1.5l1.8 3.6 4 .6-2.9 2.8.7 4L8 10.4l-3.6 1.9.7-4L2.2 5.7l4-.6L8 1.5z" fill={color} stroke={color} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function ChevronDownIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M4 6l4 4 4-4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function ChevronRightIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M6 4l4 4-4 4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function PlayIcon({ size = 14, color = 'currentColor' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M4 2.5l9 5.5-9 5.5V2.5z" fill={color} stroke={color} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function PauseIcon({ size = 14, color = 'currentColor' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <rect x="3.5" y="2.5" width="3" height="11" rx="1" fill={color} />
+      <rect x="9.5" y="2.5" width="3" height="11" rx="1" fill={color} />
+    </svg>
+  )
+}
+
+export function DotFilledIcon({ size = 8, color = 'currentColor' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 8 8" fill="none">
+      <circle cx="4" cy="4" r="3" fill={color} />
+    </svg>
+  )
+}
+
+export function ThumbUpIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M4 13V7M2 8H1a.5.5 0 0 1-.5-.5v-4A.5.5 0 0 1 1 3h3M8 1v4a1 1 0 0 1-1 1H4L2 8m6-7c0 0 1 0 2.5 2.5L13 7v4.5A1.5 1.5 0 0 1 11.5 13H5a1 1 0 0 1-1-1v-4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function ThumbDownIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M10 1v6M12 6h1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3M6 13v-4a1 1 0 0 1 1-1h3L14 6M6 13c0 0-1 0-2.5-2.5L.5 7V2.5A1.5 1.5 0 0 1 2 1h6.5a1 1 0 0 1 1 1v4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+export function PencilIcon({ size = 14, color = 'currentColor', strokeWidth = 1.6 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M9.5 2.5L11.5 4.5L4.5 11.5L2 12L2.5 9.5L9.5 2.5Z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}

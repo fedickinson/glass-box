@@ -30,6 +30,9 @@ export interface TreeNode {
   headline: string // short 3-8 word summary for compact tree view — shown in collapsed card; content shown in detail panel
   content: string // the reasoning text, tool description, or citation text
   source?: string // for citation/tool nodes: guideline ref, db name, etc.
+  source_author?: string  // citation author(s) — e.g. "Beaty JH, Kasser JR (eds)"
+  source_chapter?: string // chapter title or number — e.g. "Ch. 17 — Lateral Condyle Fractures"
+  source_pages?: string   // page range — e.g. "pp. 714–726"
   is_decision_point: boolean
   // First reasoning node — where clinical thinking begins after preflight clears.
   // Rendered with expanded layout showing patient context + reasoning direction.
@@ -50,10 +53,12 @@ export interface TreeNode {
   // Terminal node fields — rendered as TerminalCard instead of TreeNode
   terminal_summary?: string     // 1-2 sentence rationale for why the branch reached this diagnosis
   next_step?: string            // suggested action if this branch's conclusion is correct
+  terminal_contradiction?: string // if present, the beam found evidence contradicting this hypothesis — shown as "not supported" in synthesis
   path_label?: string           // e.g. "Path 1: Sequential cardiac evaluation"
-  terminal_safety_checks?: Array<{ label: string; status: 'pass' | 'warn' | 'fail' }>
+  terminal_safety_checks?: Array<{ label: string; status: 'pass' | 'warn' | 'fail' | 'flag' }>
   // Architecture-view metadata (hidden in clinical view)
   tool_name?: string // for tool nodes: which tool was called
+  result_summary?: string // for tool nodes: what the call returned (1-2 sentences)
   latency_ms?: number // for tool nodes: how long the call took
   step_index?: number // sequential position in the reasoning chain
 }
@@ -148,7 +153,7 @@ export interface SynthesisData {
  */
 export interface HypothesisGroup {
   diagnosis: string
-  tag: 'PRIMARY' | 'DIVERGENT' | 'UNLIKELY'
+  tag: 'PRIMARY' | 'DIVERGENT' | 'UNLIKELY' | 'CONTRADICTED'
   branchIds: string[]              // all active branches reaching this diagnosis
   pathCount: number                // how many branches
   totalPaths: number               // total active (unpruned) branches
@@ -156,7 +161,9 @@ export interface HypothesisGroup {
   branches: BranchSummary[]        // full branch summaries for expanded detail view
   evidenceFor: EvidenceEntry[]     // citations + tool results supporting this dx
   evidenceAgainst: EvidenceEntry[] // competing reasoning + conditions that weaken dx
-  nextStep?: string                // suggested action if this hypothesis is correct
+  nextStep?: string                // suggested investigative action (absent for CONTRADICTED)
+  whyNotSupported?: string         // for CONTRADICTED: specific reason the beam found evidence against this
+  safetyFlags?: Array<{ label: string }> // patient-safety flags on the terminal node — shown as amber card in synthesis
 }
 
 /**
@@ -256,6 +263,7 @@ export interface SafetyViolation {
 export interface SafetySummary {
   passedPaths: number         // active branches (not shield-terminated)
   totalPaths: number          // active + shield-terminated (excludes doctor-pruned)
+  flaggedPaths: number        // active branches with at least one 'flag'-status safety check
   passedChecks: SafetyCheck[] // affirmative checks, ordered by relevance
   violations: SafetyViolation[]
 }
@@ -332,31 +340,73 @@ export type FocusState =
     }
 
 /**
+ * A single beat in the pre-built animation sequence.
+ * Each beat is a complete snapshot of tree visibility at that moment.
+ */
+export interface AnimationBeat {
+  /** All node IDs that should be visible at this beat (cumulative) */
+  visibleIds: string[]
+  /**
+   * Which branch IDs are "active" (full opacity).
+   * null = all branches at full opacity (trunk / idle phase).
+   * Non-null = branches NOT in this list render at 35% opacity.
+   */
+  activeBranchIds: string[] | null
+  /**
+   * How long (ms) to hold this beat before auto-advancing.
+   * Only used when autoPause is false or after the user resumes.
+   */
+  pauseMs: number
+  /**
+   * If true, the growth timer will NOT auto-advance from this beat.
+   * The presenter must press Space/Resume to continue.
+   * Used at decision points and the convergence moment.
+   */
+  autoPause?: boolean
+  /** Marks this beat as a decision-point reveal (triggers pulse animation on the dp node) */
+  isDecisionReveal?: boolean
+  /**
+   * True on beats that reveal one sibling branch node sequentially after a
+   * decision point. Camera pans gently to each node at decision zoom so the
+   * audience sees each option before the system commits to a path.
+   */
+  isBranchReveal?: boolean
+  /**
+   * True on the first beat that follows a *-beams simultaneous reveal.
+   * Triggers a two-step camera: briefly zoom out to show the fork context,
+   * then zoom in tight onto the chosen path's first node.
+   */
+  isFirstAfterFork?: boolean
+  /** Debug / voiceover label */
+  phase?: string
+}
+
+/**
  * Growth playback state: controls the incremental tree-growing animation.
- * 
- * The `cursor` is an index into the step_index-ordered node list.
- * Nodes with step_index <= cursor are visible; others don't render.
- * 
- * Growth auto-pauses when the cursor reaches a decision point node.
+ *
+ * Uses a pre-built AnimationBeat sequence instead of a cursor index.
+ * Each beat specifies exactly which nodes are visible and which branches are active.
+ *
+ * Growth auto-pauses at beats where autoPause is true.
  * The presenter clicks resume (or presses space) to continue.
- * While paused, the presenter can click nodes to explore (PAUSED_EXPLORING),
+ * While paused, the presenter can click nodes to explore (paused_exploring),
  * which activates the normal focus/navigation system on the already-rendered nodes.
  */
 export type GrowthPlaybackState =
   | { mode: 'idle' }
   | {
       mode: 'playing'
-      cursor: number
-      speed: GrowthSpeed
-      /** Branch the camera (and optional growth filter) follows after a branch choice */
-      chosenBranchId?: string
+      beatIndex: number
+      sequence: AnimationBeat[]
     }
-  | { mode: 'paused_at_decision'; cursor: number; decisionNodeId: string }
-  | { mode: 'paused_manual'; cursor: number }
-  | { mode: 'paused_exploring'; cursor: number; previousFocusMode: 'paused_at_decision' | 'paused_manual' }
-
-/** Growth speed presets in ms per node */
-export type GrowthSpeed = 100 | 200 | 400
+  | {
+      mode: 'paused_at_decision'
+      beatIndex: number
+      sequence: AnimationBeat[]
+      decisionNodeId: string
+    }
+  | { mode: 'paused_manual'; beatIndex: number; sequence: AnimationBeat[] }
+  | { mode: 'paused_exploring'; beatIndex: number; sequence: AnimationBeat[]; previousFocusMode: 'paused_at_decision' | 'paused_manual' }
 
 // ============================================================
 // Audit trail — log of every system and doctor action
@@ -411,15 +461,13 @@ export type TreeAction =
   // View mode
   | { type: 'TOGGLE_VIEW_MODE' }
   // Growth playback
-  | { type: 'START_GROWTH'; speed?: GrowthSpeed }
+  | { type: 'START_GROWTH' }
   | { type: 'PAUSE_GROWTH' }
   | { type: 'RESUME_GROWTH' }
   | { type: 'STEP_FORWARD' }
   | { type: 'STEP_BACKWARD' }
-  | { type: 'SET_GROWTH_SPEED'; speed: GrowthSpeed }
   | { type: 'SKIP_TO_END' }
   // Internal: called by the growth timer, not by user actions directly
   | { type: 'GROWTH_TICK' }
-  | { type: 'GROWTH_AUTO_PAUSE'; decisionNodeId: string }
   // Audit
   | { type: 'APPEND_AUDIT'; entry: Omit<AuditEntry, 'id' | 'timestamp'> }

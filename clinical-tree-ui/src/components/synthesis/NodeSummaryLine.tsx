@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import { NodeSummary, DoctorAnnotation, DoctorAnnotationType } from '../../types/tree'
 import AnnotationInput from './AnnotationInput'
+import { FlagIcon, PaperclipIcon, LightningIcon, XIcon } from '../shared/Icons'
 
 const TYPE_DOT_COLORS: Record<string, string> = {
   thought: '#3B7DD8',
@@ -131,8 +132,12 @@ export default function NodeSummaryLine({
             onClick={e => e.stopPropagation()}
           >
             {(['flag', 'context', 'challenge'] as DoctorAnnotationType[]).map(t => {
-              const icons: Record<string, string> = { flag: '⚑', context: '📎', challenge: '⚡' }
               const colors: Record<string, string> = { flag: '#C53D2F', context: '#3B7DD8', challenge: '#D4950A' }
+              const iconComponents: Record<string, React.ReactNode> = {
+                flag: <FlagIcon size={9} color={colors.flag} />,
+                context: <PaperclipIcon size={9} color={colors.context} />,
+                challenge: <LightningIcon size={9} color={colors.challenge} />,
+              }
               return (
                 <button
                   key={t}
@@ -146,14 +151,13 @@ export default function NodeSummaryLine({
                     background: `${colors[t]}10`,
                     color: colors[t],
                     cursor: 'pointer',
-                    fontSize: 10,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: 0,
                   }}
                 >
-                  {icons[t]}
+                  {iconComponents[t]}
                 </button>
               )
             })}
@@ -178,8 +182,8 @@ export default function NodeSummaryLine({
                 marginBottom: 2,
               }}
             >
-              <span style={{ fontSize: 9, color: ANNOTATION_COLORS[ann.type] ?? '#888', flexShrink: 0, marginTop: 1 }}>
-                {ann.type === 'flag' ? '⚑' : ann.type === 'context' ? '📎' : '⚡'}
+              <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}>
+                {ann.type === 'flag' ? <FlagIcon size={9} color={ANNOTATION_COLORS.flag} /> : ann.type === 'context' ? <PaperclipIcon size={9} color={ANNOTATION_COLORS.context} /> : <LightningIcon size={9} color={ANNOTATION_COLORS.challenge} />}
               </span>
               <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.65)', flex: 1, lineHeight: 1.35 }}>
                 {ann.content}
@@ -187,17 +191,17 @@ export default function NodeSummaryLine({
               <button
                 onClick={() => onRemoveAnnotation(ann.id)}
                 style={{
-                  fontSize: 10,
+                  display: 'flex',
+                  alignItems: 'center',
                   color: 'rgba(0,0,0,0.3)',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
                   padding: 0,
-                  lineHeight: 1,
                   flexShrink: 0,
                 }}
               >
-                ×
+                <XIcon size={9} color="rgba(0,0,0,0.35)" />
               </button>
             </div>
           ))}

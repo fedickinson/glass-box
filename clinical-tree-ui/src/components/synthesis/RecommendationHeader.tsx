@@ -1,6 +1,12 @@
 /** RecommendationHeader — diagnosis headline and confidence badge */
 import React from 'react'
+
+function firstSentence(text: string): string {
+  const match = text.match(/^.+?[.!?](?:\s|$)/)
+  return match ? match[0].trim() : text.slice(0, 120)
+}
 import { SynthesisData, FocusState } from '../../types/tree'
+import { WarningIcon, StarFilledIcon, ChevronDownIcon } from '../shared/Icons'
 
 const CONFIDENCE_COLORS = {
   high: { text: '#1A6E3C', bg: 'rgba(26,110,60,0.08)', border: 'rgba(26,110,60,0.2)' },
@@ -56,7 +62,7 @@ export default function RecommendationHeader({
               color: '#1A52A8',
             }}
           >
-            Recommendation
+            Leading Diagnosis
           </div>
           {confidence.convergingBranches > 1 && (
             <span style={{
@@ -90,20 +96,20 @@ export default function RecommendationHeader({
           {recommendation.summary.length > 200 ? '…' : ''}
         </div>
 
-        {/* Potential next step */}
-        {recommendation.nextStep && (
+        {/* Potential next step — only show when collapsed; HypothesisCard handles it when expanded */}
+        {recommendation.nextStep && !primaryExpanded && (
           <div style={{
-            display: 'flex', alignItems: 'flex-start', gap: 7,
+            display: 'flex', flexDirection: 'column', gap: 3,
             marginBottom: synthesis.safetySummary.violations.length > 0 ? 10 : 0,
           }}>
             <span style={{
               fontSize: 8, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-              color: '#1A52A8', flexShrink: 0, marginTop: 2,
+              color: '#1A52A8',
             }}>
-              Next step for this diagnosis
+              Investigate
             </span>
             <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.62)', lineHeight: 1.5 }}>
-              {recommendation.nextStep}
+              {firstSentence(recommendation.nextStep)}
             </span>
           </div>
         )}
@@ -117,13 +123,13 @@ export default function RecommendationHeader({
             border: '1px solid rgba(212,149,10,0.25)',
             marginBottom: isPinned ? 10 : 0,
           }}>
-            <span style={{ fontSize: 10.5, color: '#7A5500', lineHeight: 1.5 }}>
-              <span style={{ marginRight: 4 }}>⚠</span>
-              <strong>Remaining uncertainty:</strong> {synthesis.safetySummary.violations.length} path
+            <span style={{ fontSize: 10.5, color: '#7A5500', lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', marginTop: 1, flexShrink: 0 }}><WarningIcon size={11} color="#7A5500" /></span>
+              <span><strong>Remaining uncertainty:</strong> {synthesis.safetySummary.violations.length} path</span>
               {synthesis.safetySummary.violations.length > 1 ? 's were' : ' was'} terminated by the
               Shield model for safety reasons — not because those diagnoses were clinically excluded.
               Review terminated paths before committing.
-            </span>
+              </span>
           </div>
         )}
 
@@ -143,7 +149,7 @@ export default function RecommendationHeader({
               padding: '3px 8px',
             }}
           >
-            ★ Doctor concurs
+            <StarFilledIcon size={10} color="#1A52A8" /> Doctor concurs
           </div>
         )}
 
@@ -159,11 +165,10 @@ export default function RecommendationHeader({
               {primaryExpanded ? 'Hide reasoning' : 'View reasoning'}
             </span>
             <span style={{
-              fontSize: 8,
-              display: 'inline-block',
+              display: 'inline-flex',
               transform: primaryExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
               transition: 'transform 180ms ease-out',
-            }}>▾</span>
+            }}><ChevronDownIcon size={12} color="rgba(26,82,168,0.55)" /></span>
           </div>
         )}
       </div>

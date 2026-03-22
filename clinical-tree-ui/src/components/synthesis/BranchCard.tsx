@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from 'react'
 import { BranchSummary, DoctorAnnotation, FocusState, DoctorAnnotationType } from '../../types/tree'
 import NodeSummaryLine from './NodeSummaryLine'
+import { StarFilledIcon } from '../shared/Icons'
 
 const BRANCH_LABEL_COLORS: Record<string, string> = {
   primary: '#1A52A8',
@@ -162,7 +163,7 @@ export default function BranchCard({
                   letterSpacing: '0.06em',
                 }}
               >
-                ★ PINNED
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><StarFilledIcon size={8} color="#1A52A8" /> PINNED</span>
               </span>
             )}
           </div>
@@ -223,14 +224,13 @@ export default function BranchCard({
               border: isPinned ? '1px solid rgba(26,82,168,0.3)' : '1px solid rgba(0,0,0,0.1)',
               background: isPinned ? 'rgba(26,82,168,0.1)' : 'rgba(0,0,0,0.03)',
               cursor: 'pointer',
-              fontSize: 11,
               color: isPinned ? '#1A52A8' : 'rgba(0,0,0,0.35)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            ★
+            <StarFilledIcon size={10} color={isPinned ? '#1A52A8' : 'rgba(0,0,0,0.35)'} />
           </button>
           {!branch.isPrimary && (
             <button

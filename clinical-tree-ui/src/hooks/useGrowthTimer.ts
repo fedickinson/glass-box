@@ -1,17 +1,26 @@
-/** useGrowthTimer — dispatches GROWTH_TICK at growth.speed intervals while playing */
+/** useGrowthTimer — fires GROWTH_TICK after each beat's pauseMs delay.
+ *  Uses setTimeout (not setInterval) so each beat can have its own duration.
+ *  Auto-pause beats are handled by the reducer — the timer just doesn't run
+ *  when mode is not 'playing'.
+ */
 import { useEffect } from 'react'
-import { GrowthPlaybackState, TreeAction } from '../types/tree'
+import { GrowthPlaybackState, AnimationBeat, TreeAction } from '../types/tree'
 
 export function useGrowthTimer(
   growth: GrowthPlaybackState,
   dispatch: React.Dispatch<TreeAction>
 ): void {
   const isPlaying = growth.mode === 'playing'
-  const speed = isPlaying ? (growth as { speed: number }).speed : 200
+  const beatIndex = isPlaying ? growth.beatIndex : -1
+  const currentBeat: AnimationBeat | undefined = isPlaying
+    ? growth.sequence[growth.beatIndex]
+    : undefined
+  const pauseMs = currentBeat?.pauseMs ?? 1000
 
   useEffect(() => {
     if (!isPlaying) return
-    const id = setInterval(() => dispatch({ type: 'GROWTH_TICK' }), speed)
-    return () => clearInterval(id)
-  }, [isPlaying, speed, dispatch])
+    const id = setTimeout(() => dispatch({ type: 'GROWTH_TICK' }), pauseMs)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, beatIndex, dispatch])
 }

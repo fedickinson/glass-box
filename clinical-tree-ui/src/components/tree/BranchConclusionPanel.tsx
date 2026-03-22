@@ -8,7 +8,7 @@ import {
 } from '../../types/tree'
 import { TerminalVariant } from './TerminalCard'
 import {
-  XIcon, CheckIcon, CrossIcon, WarningIcon, ConvergeIcon, ArrowRightIcon, ScissorsIcon,
+  XIcon, CheckIcon, CrossIcon, WarningIcon, ConvergeIcon, ArrowRightIcon, DotFilledIcon,
 } from '../shared/Icons'
 
 interface Props {
@@ -19,7 +19,6 @@ interface Props {
   rejectedPath: RejectedPath | null
   safetySummary: SafetySummary
   onClose: () => void
-  onPruneBranch: (branchId: string) => void
   onRestoreBranch: (branchId: string) => void
   onEvidenceNodeClick: (nodeId: string) => void
   onAuditHypothesis: (diagnosis: string, branchIds: string[]) => void
@@ -35,6 +34,21 @@ const VARIANT_CFG = {
     accent: '#64748B',
     tagBg: 'rgba(100,116,139,0.08)', tagBorder: 'rgba(100,116,139,0.20)', tagColor: '#64748B',
     tagLabel: 'DIVERGENT',
+  },
+  supported: {
+    accent: '#3B7DD8',
+    tagBg: 'rgba(59,125,216,0.08)', tagBorder: 'rgba(59,125,216,0.22)', tagColor: '#3B7DD8',
+    tagLabel: 'SUPPORTED',
+  },
+  flagged: {
+    accent: '#C45A10',
+    tagBg: 'rgba(196,90,16,0.08)', tagBorder: 'rgba(196,90,16,0.22)', tagColor: '#C45A10',
+    tagLabel: 'FLAGGED',
+  },
+  not_supported: {
+    accent: '#94A3B8',
+    tagBg: 'rgba(148,163,184,0.08)', tagBorder: 'rgba(148,163,184,0.20)', tagColor: '#94A3B8',
+    tagLabel: 'NOT SUPPORTED',
   },
   shield_killed: {
     accent: '#C53D2F',
@@ -52,7 +66,7 @@ const DRAWER_HEIGHT = 300
 
 export default function BranchConclusionPanel({
   terminalNode, variant, branchSummary, convergences, rejectedPath, safetySummary,
-  onClose, onPruneBranch, onRestoreBranch, onEvidenceNodeClick, onAuditHypothesis,
+  onClose, onRestoreBranch, onEvidenceNodeClick, onAuditHypothesis,
 }: Props) {
   const [visible, setVisible] = useState(false)
 
@@ -80,10 +94,25 @@ export default function BranchConclusionPanel({
   const branchPassChecks = safetySummary.passedChecks.slice(0, 4)
   const keyEvidence      = branchSummary?.nodeSummaries.filter(s => s.isKeyStep).slice(0, 6) ?? []
 
+  const hasSafetyFlag    = nodeChecks.some(c => c.status === 'flag')
+  const isContradicted   = !!terminalNode.terminal_contradiction
+  const isConverging     = otherTerminalIds.length > 0
+
+  const actionLabel: React.ReactNode = hasSafetyFlag
+    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><WarningIcon size={11} color="#8B4800" /> Requires specialist review</span>
+    : isContradicted
+    ? 'Review reasoning trace →'
+    : isConverging
+    ? 'View corroborating paths →'
+    : 'View reasoning trace →'
+  const actionIsGate = hasSafetyFlag
+
   return (
     <div
       onClick={e => e.stopPropagation()}
       style={{
+        position: 'relative',
+        zIndex: 20,
         height: visible ? DRAWER_HEIGHT : 0,
         transition: 'height 300ms ease-out',
         overflow: 'hidden',
@@ -280,13 +309,14 @@ export default function BranchConclusionPanel({
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {nodeChecks.length > 0 ? nodeChecks.map((chk, i) => {
-                    const c = chk.status === 'fail' ? '#C53D2F' : chk.status === 'warn' ? '#B37A0A' : '#2D8A56'
+                    const c = chk.status === 'fail' ? '#C53D2F' : chk.status === 'flag' ? '#C53D2F' : chk.status === 'warn' ? '#B37A0A' : '#2D8A56'
                     return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                         {chk.status === 'fail' ? <CrossIcon size={11} color={c} />
+                         : chk.status === 'flag' ? <span style={{ display: 'flex', alignItems: 'center', marginTop: 1, flexShrink: 0 }}><DotFilledIcon size={8} color="#C53D2F" /></span>
                          : chk.status === 'warn' ? <WarningIcon size={11} color={c} />
                          : <CheckIcon size={11} color={c} />}
-                        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.6)' }}>{chk.label}</span>
+                        <span style={{ fontSize: 11, color: chk.status === 'flag' ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.6)', lineHeight: 1.4 }}>{chk.label}</span>
                       </div>
                     )
                   }) : isShieldKilled ? (
@@ -323,34 +353,22 @@ export default function BranchConclusionPanel({
 
               {!isPruned && (
                 <button
-                  onClick={() => onAuditHypothesis(diagnosis, [branchId])}
+                  onClick={actionIsGate ? undefined : () => onAuditHypothesis(diagnosis, [branchId])}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     padding: '7px 10px', borderRadius: 7,
-                    background: 'rgba(26,82,168,0.07)',
-                    border: '1px solid rgba(26,82,168,0.18)',
-                    color: '#1A52A8', cursor: 'pointer',
+                    background: actionIsGate ? 'rgba(184,98,0,0.08)' : 'rgba(26,82,168,0.07)',
+                    border: actionIsGate ? '1px solid rgba(184,98,0,0.22)' : '1px solid rgba(26,82,168,0.18)',
+                    color: actionIsGate ? '#8B4800' : '#1A52A8',
+                    cursor: actionIsGate ? 'default' : 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>Audit full hypothesis</span>
-                  <ArrowRightIcon size={11} color="#1A52A8" />
+                  <span style={{ fontSize: 11, fontWeight: 600 }}>{actionLabel}</span>
+                  {!actionIsGate && <ArrowRightIcon size={11} color={isConverging ? '#2D8A56' : '#1A52A8'} />}
                 </button>
               )}
 
-              {!isPruned ? (
-                <button
-                  onClick={() => onPruneBranch(branchId)}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    padding: '7px 10px', borderRadius: 7,
-                    background: 'none', border: '1px solid rgba(0,0,0,0.1)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <ScissorsIcon size={11} color="rgba(0,0,0,0.4)" />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(0,0,0,0.45)' }}>Prune branch</span>
-                </button>
-              ) : (
+              {isPruned && (
                 <button
                   onClick={() => onRestoreBranch(branchId)}
                   style={{

@@ -1,12 +1,14 @@
 /** SynthesisPanel — interactive review interface: recommendation, hypothesis cards, safety compliance */
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { SynthesisData, FocusState, DoctorAnnotation, DoctorAnnotationType, SafetyViolation } from '../../types/tree'
 import RecommendationHeader from './RecommendationHeader'
 import HypothesisCard from './HypothesisCard'
 import SafetyComplianceSection from './SafetyComplianceSection'
+import { WarningIcon, CheckIcon, ChevronDownIcon } from '../shared/Icons'
 
 interface Props {
   synthesis: SynthesisData
+  synthesisPhase?: 'pre' | 'generating' | 'revealed'
   focusState: FocusState
   annotations: DoctorAnnotation[]
   pinnedBranchId: string | null
@@ -16,12 +18,12 @@ interface Props {
   onNodeClick: (nodeId: string) => void
   onNodeHoverEnter: (nodeId: string) => void
   onNodeHoverLeave: () => void
-  onPruneBranch: (branchId: string) => void
   onRestoreBranch: (branchId: string) => void
   onPinBranch: (branchId: string) => void
   onUnpinBranch: () => void
   onAnnotate: (nodeId: string, type: DoctorAnnotationType, content: string) => void
   onRemoveAnnotation: (annotationId: string) => void
+  onAddReview: (diagnosis: string, rating: 'up' | 'down' | null, text: string) => void
 }
 
 function TerminatedCard({ violation, onViewInTree }: { violation: SafetyViolation; onViewInTree: (branchId: string) => void }) {
@@ -87,11 +89,11 @@ function TerminatedCard({ violation, onViewInTree }: { violation: SafetyViolatio
 
         {/* Chevron */}
         <span style={{
-          fontSize: 8, color: 'rgba(0,0,0,0.25)',
+          color: 'rgba(0,0,0,0.25)',
           transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 180ms ease-out',
-          display: 'inline-block', flexShrink: 0,
-        }}>▾</span>
+          display: 'inline-flex', flexShrink: 0,
+        }}><ChevronDownIcon size={12} color="rgba(0,0,0,0.25)" /></span>
       </div>
 
       {/* Expanded detail */}
@@ -130,7 +132,7 @@ function Divider() {
         height: 1,
         background:
           'linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.07) 20%, rgba(0,0,0,0.07) 80%, transparent 100%)',
-        margin: '10px 0',
+        margin: '6px 0',
       }}
     />
   )
@@ -138,6 +140,7 @@ function Divider() {
 
 export default function SynthesisPanel({
   synthesis,
+  synthesisPhase = 'pre',
   focusState,
   annotations,
   pinnedBranchId,
@@ -147,19 +150,55 @@ export default function SynthesisPanel({
   onNodeClick,
   onNodeHoverEnter,
   onNodeHoverLeave,
-  onPruneBranch,
   onRestoreBranch,
   onPinBranch,
   onUnpinBranch,
   onAnnotate,
   onRemoveAnnotation,
+  onAddReview,
 }: Props) {
   const { hypothesisGroups } = synthesis
   const primaryGroup = hypothesisGroups.find(g => g.tag === 'PRIMARY') ?? null
   const [primaryExpanded, setPrimaryExpanded] = useState(false)
   const [expandedDiagnosis, setExpandedDiagnosis] = useState<string | null>(null)
   const [clinicalAssessment, setClinicalAssessment] = useState('')
+  const [assessmentFocused, setAssessmentFocused] = useState(false)
+  const [safetyAcknowledged, setSafetyAcknowledged] = useState(false)
   const [signOffState, setSignOffState] = useState<'idle' | 'confirming' | 'signed'>('idle')
+
+  // Simple reveal flag — flips to true when growth completes.
+  // Sections declare their own transitionDelay for per-section staggering.
+  const [isRevealed, setIsRevealed] = useState(false)
+
+  useEffect(() => {
+    if (synthesisPhase === 'revealed') {
+      // One rAF so the browser paints opacity:0 before we flip to visible
+      const id = requestAnimationFrame(() => setIsRevealed(true))
+      return () => cancelAnimationFrame(id)
+    }
+    if (synthesisPhase === 'generating') setIsRevealed(false)
+  }, [synthesisPhase])
+
+  // Returns spread-able props for a reveal section wrapper.
+  // In 'pre' mode nothing animates — content is always visible immediately.
+  function reveal(delayMs: number): { className?: string; style?: React.CSSProperties } {
+    if (synthesisPhase === 'pre') return {}
+    return {
+      className: isRevealed ? 'synthesis-reveal-section visible' : 'synthesis-reveal-section',
+      style: { transitionDelay: `${delayMs}ms` },
+    }
+  }
+
+  // Precompute group lists so we can assign sequential card delays before JSX.
+  const activeGroupsList  = hypothesisGroups.filter(g => g.tag !== 'PRIMARY' && g.tag !== 'CONTRADICTED' && !g.safetyFlags?.length)
+  const flaggedGroupsList = hypothesisGroups.filter(g => !!g.safetyFlags?.length && g.tag !== 'CONTRADICTED')
+  const contradictedList  = hypothesisGroups.filter(g => g.tag === 'CONTRADICTED')
+  const violationsList    = synthesis.safetySummary.violations
+  const CARDS_BASE = 900
+  const CARDS_STEP = 420
+  let cardDelayIdx = 0
+  function nextCardDelay(): number { return CARDS_BASE + (cardDelayIdx++) * CARDS_STEP }
+  const footerDelay = CARDS_BASE + (activeGroupsList.length + flaggedGroupsList.length + contradictedList.length + violationsList.length) * CARDS_STEP + 300
 
   function handleToggleHypothesis(diagnosis: string, branchIds: string[]) {
     const isOpening = expandedDiagnosis !== diagnosis
@@ -167,6 +206,69 @@ export default function SynthesisPanel({
     if (isOpening) {
       onHypothesisClick(diagnosis, branchIds)
     }
+  }
+
+  // Loading state shown during growth playback
+  if (synthesisPhase === 'generating') {
+    return (
+      <div
+        className="flex flex-col items-center justify-center overflow-hidden"
+        style={{
+          width: '35%',
+          background: 'rgba(250,251,255,0.94)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.9)',
+          gap: 28,
+        }}
+      >
+        {/* Pulsing icon */}
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          background: 'linear-gradient(148deg, rgba(59,125,216,0.12) 0%, rgba(59,125,216,0.06) 100%)',
+          border: '1px solid rgba(59,125,216,0.18)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'synthesis-pulse 2s ease-in-out infinite',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 10h2M15 10h2M10 3v2M10 15v2" stroke="#3B7DD8" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="10" cy="10" r="3.5" stroke="#3B7DD8" strokeWidth="1.5" fill="rgba(59,125,216,0.10)"/>
+            <path d="M5.5 5.5l1.4 1.4M13.1 13.1l1.4 1.4M14.5 5.5l-1.4 1.4M6.9 13.1l-1.4 1.4" stroke="#3B7DD8" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+        </div>
+
+        {/* Label + dots */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            fontSize: 11.5, fontWeight: 600, letterSpacing: '0.04em',
+            color: 'rgba(0,0,0,0.45)',
+            animation: 'synthesis-pulse 2s ease-in-out infinite',
+          }}>
+            Synthesizing clinical assessment
+          </div>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            {[1, 2, 3].map(i => (
+              <span key={i} style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: '#3B7DD8',
+                display: 'inline-block',
+                animation: `synthesis-dot-${i} 1.2s ease-in-out infinite`,
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Skeleton lines */}
+        <div style={{ width: '72%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="synthesis-skeleton" style={{ height: 10, width: '90%' }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '70%' }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '80%' }} />
+          <div style={{ height: 4 }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '65%' }} />
+          <div className="synthesis-skeleton" style={{ height: 10, width: '85%' }} />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -182,80 +284,47 @@ export default function SynthesisPanel({
     >
       <div
         className="flex-1 overflow-y-auto"
-        style={{ padding: '22px 20px' }}
+        style={{ padding: '14px 20px' }}
       >
         {/* Most Likely Path label */}
-        <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
-          textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)',
-          marginBottom: 8,
-        }}>
-          Most Supported Diagnosis
+        <div {...reveal(0)}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
+            textTransform: 'uppercase', color: 'rgba(0,0,0,0.60)',
+            marginBottom: 8,
+          }}>
+            Possible Diagnoses
+          </div>
         </div>
 
         {/* Recommendation box — clickable to expand primary reasoning detail */}
-        <RecommendationHeader
-          synthesis={synthesis}
-          isPinned={!!pinnedBranchId}
-          pinnedBranchId={pinnedBranchId}
-          focusState={focusState}
-          onDiagnosisGroupClick={onBranchClick}
-          primaryExpanded={primaryExpanded}
-          onTogglePrimary={() => {
-            const isOpening = !primaryExpanded
-            setPrimaryExpanded(p => !p)
-            if (isOpening && primaryGroup) {
-              onHypothesisClick(primaryGroup.diagnosis, primaryGroup.branchIds)
-            }
-          }}
-        />
-
-        {/* Primary reasoning accordion — visually attached to recommendation box */}
-        {primaryExpanded && primaryGroup && (
-          <HypothesisCard
-            group={primaryGroup}
-            isExpanded={true}
-            attachedToHeader={true}
-            onToggleExpand={() => setPrimaryExpanded(false)}
-            focusState={focusState}
-            annotations={annotations.filter(a =>
-              primaryGroup.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
-            )}
+        <div {...reveal(220)}>
+          <RecommendationHeader
+            synthesis={synthesis}
+            isPinned={!!pinnedBranchId}
             pinnedBranchId={pinnedBranchId}
-            onHypothesisClick={onHypothesisClick}
-            onBranchClick={onBranchClick}
-            onNodeClick={onNodeClick}
-            onEvidenceNodeClick={onEvidenceNodeClick}
-            onNodeHoverEnter={onNodeHoverEnter}
-            onNodeHoverLeave={onNodeHoverLeave}
-            onPruneBranch={onPruneBranch}
-            onAnnotate={onAnnotate}
-            onRemoveAnnotation={onRemoveAnnotation}
+            focusState={focusState}
+            onDiagnosisGroupClick={onBranchClick}
+            primaryExpanded={primaryExpanded}
+            onTogglePrimary={() => {
+              const isOpening = !primaryExpanded
+              setPrimaryExpanded(p => !p)
+              if (isOpening && primaryGroup) {
+                onHypothesisClick(primaryGroup.diagnosis, primaryGroup.branchIds)
+              }
+            }}
           />
-        )}
 
-        <Divider />
-
-        {/* Hypothesis cards — one compact card per unique terminal diagnosis (PRIMARY handled above) */}
-        <div>
-          {hypothesisGroups.filter(g => g.tag !== 'PRIMARY').length > 0 && (
-            <div style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
-              textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)',
-              marginBottom: 8,
-            }}>
-              Additional Valid Diagnoses
-            </div>
-          )}
-          {hypothesisGroups.filter(g => g.tag !== 'PRIMARY').map(group => (
+          {/* Primary reasoning accordion — visually attached to recommendation box */}
+          {primaryExpanded && primaryGroup && (
             <HypothesisCard
-              key={group.diagnosis}
-              group={group}
-              isExpanded={expandedDiagnosis === group.diagnosis}
-              onToggleExpand={() => handleToggleHypothesis(group.diagnosis, group.branchIds)}
+              group={primaryGroup}
+              isExpanded={true}
+              attachedToHeader={true}
+              onToggleExpand={() => setPrimaryExpanded(false)}
               focusState={focusState}
               annotations={annotations.filter(a =>
-                group.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
+                primaryGroup.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
               )}
               pinnedBranchId={pinnedBranchId}
               onHypothesisClick={onHypothesisClick}
@@ -264,24 +333,136 @@ export default function SynthesisPanel({
               onEvidenceNodeClick={onEvidenceNodeClick}
               onNodeHoverEnter={onNodeHoverEnter}
               onNodeHoverLeave={onNodeHoverLeave}
-              onPruneBranch={onPruneBranch}
               onAnnotate={onAnnotate}
               onRemoveAnnotation={onRemoveAnnotation}
+              onAddReview={onAddReview}
             />
+          )}
+        </div>
+
+        <div {...reveal(580)}><Divider /></div>
+
+        {/* Active hypothesis cards — each card slides in individually */}
+        <div>
+          {activeGroupsList.length > 0 && (
+            <div {...reveal(720)}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
+                textTransform: 'uppercase', color: 'rgba(0,0,0,0.60)',
+                marginBottom: 8,
+              }}>
+                Additional Hypotheses Under Investigation
+              </div>
+            </div>
+          )}
+          {activeGroupsList.map(group => (
+            <div key={group.diagnosis} {...reveal(nextCardDelay())}>
+              <HypothesisCard
+                group={group}
+                isExpanded={expandedDiagnosis === group.diagnosis}
+                onToggleExpand={() => handleToggleHypothesis(group.diagnosis, group.branchIds)}
+                focusState={focusState}
+                annotations={annotations.filter(a =>
+                  group.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
+                )}
+                pinnedBranchId={pinnedBranchId}
+                onHypothesisClick={onHypothesisClick}
+                onBranchClick={onBranchClick}
+                onNodeClick={onNodeClick}
+                onEvidenceNodeClick={onEvidenceNodeClick}
+                onNodeHoverEnter={onNodeHoverEnter}
+                onNodeHoverLeave={onNodeHoverLeave}
+                onAnnotate={onAnnotate}
+                onRemoveAnnotation={onRemoveAnnotation}
+                onAddReview={onAddReview}
+              />
+            </div>
           ))}
 
-          {/* TERMINATED cards — shield-terminated paths that are not clinical exclusions */}
-          {synthesis.safetySummary.violations.map(v => (
-            <TerminatedCard
-              key={v.branchId}
-              violation={v}
-              onViewInTree={onBranchClick}
-            />
+          {/* Safety-flagged hypothesis cards */}
+          {flaggedGroupsList.length > 0 && (
+            <div {...reveal(nextCardDelay())}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#9A5200', marginBottom: 8, marginTop: 14 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><WarningIcon size={10} color="#9A5200" /> Requires Specialist Review</span>
+              </div>
+            </div>
+          )}
+          {flaggedGroupsList.map(group => (
+            <div key={group.diagnosis} {...reveal(nextCardDelay())}>
+              <HypothesisCard
+                group={group}
+                isExpanded={expandedDiagnosis === group.diagnosis}
+                onToggleExpand={() => handleToggleHypothesis(group.diagnosis, group.branchIds)}
+                focusState={focusState}
+                annotations={annotations.filter(a =>
+                  group.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
+                )}
+                pinnedBranchId={pinnedBranchId}
+                onHypothesisClick={onHypothesisClick}
+                onBranchClick={onBranchClick}
+                onNodeClick={onNodeClick}
+                onEvidenceNodeClick={onEvidenceNodeClick}
+                onNodeHoverEnter={onNodeHoverEnter}
+                onNodeHoverLeave={onNodeHoverLeave}
+                onAnnotate={onAnnotate}
+                onRemoveAnnotation={onRemoveAnnotation}
+                onAddReview={onAddReview}
+              />
+            </div>
+          ))}
+
+          {/* Contradicted hypothesis cards */}
+          {contradictedList.length > 0 && (
+            <div {...reveal(nextCardDelay())}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.55)', marginBottom: 8, marginTop: 14 }}>
+                Not Supported by Evidence
+              </div>
+            </div>
+          )}
+          {contradictedList.map(group => (
+            <div key={group.diagnosis} {...reveal(nextCardDelay())}>
+              <HypothesisCard
+                group={group}
+                isExpanded={expandedDiagnosis === group.diagnosis}
+                onToggleExpand={() => handleToggleHypothesis(group.diagnosis, group.branchIds)}
+                focusState={focusState}
+                annotations={annotations.filter(a =>
+                  group.branches.some(b => b.nodeSummaries.some(ns => ns.nodeId === a.nodeId))
+                )}
+                pinnedBranchId={pinnedBranchId}
+                onHypothesisClick={onHypothesisClick}
+                onBranchClick={onBranchClick}
+                onNodeClick={onNodeClick}
+                onEvidenceNodeClick={onEvidenceNodeClick}
+                onNodeHoverEnter={onNodeHoverEnter}
+                onNodeHoverLeave={onNodeHoverLeave}
+                onAnnotate={onAnnotate}
+                onRemoveAnnotation={onRemoveAnnotation}
+                onAddReview={onAddReview}
+              />
+            </div>
+          ))}
+
+          {/* TERMINATED cards */}
+          {violationsList.map(v => (
+            <div key={v.branchId} {...reveal(nextCardDelay())}>
+              <TerminatedCard violation={v} onViewInTree={onBranchClick} />
+            </div>
           ))}
         </div>
 
-        {/* Safety & Compliance */}
-        <Divider />
+        {/* Safety & Compliance + Clinical Assessment + Sign Off — visually separated footer */}
+        <div
+          {...reveal(footerDelay)}
+          style={{
+            margin: '10px -20px -14px',
+            padding: '14px 20px 16px',
+            background: 'linear-gradient(180deg, rgba(241,244,250,0.85) 0%, rgba(236,240,248,0.92) 100%)',
+            borderTop: '1px solid rgba(0,0,0,0.07)',
+            ...reveal(footerDelay).style,
+          }}
+        >
+
         <SafetyComplianceSection
           safetySummary={synthesis.safetySummary}
           onViewInTree={branchId => onBranchClick(branchId)}
@@ -289,8 +470,7 @@ export default function SynthesisPanel({
         />
 
         {/* Clinical Assessment */}
-        <Divider />
-        <div>
+        <div style={{ marginTop: 16 }}>
           <div style={{
             fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
             textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)', marginBottom: 8,
@@ -301,7 +481,7 @@ export default function SynthesisPanel({
             value={clinicalAssessment}
             onChange={e => setClinicalAssessment(e.target.value)}
             placeholder="Enter your clinical assessment based on examination findings and review of the reasoning tree..."
-            rows={5}
+            rows={assessmentFocused || clinicalAssessment ? 3 : 1}
             style={{
               width: '100%',
               resize: 'vertical',
@@ -320,18 +500,41 @@ export default function SynthesisPanel({
               transition: 'border-color 150ms, box-shadow 150ms',
             }}
             onFocus={e => {
+              setAssessmentFocused(true)
               e.currentTarget.style.borderColor = 'rgba(26,82,168,0.30)'
               e.currentTarget.style.boxShadow = '0 0 0 3px rgba(26,82,168,0.07), 0 1px 3px rgba(0,0,0,0.05)'
             }}
             onBlur={e => {
+              setAssessmentFocused(false)
               e.currentTarget.style.borderColor = 'rgba(0,0,0,0.10)'
               e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)'
             }}
           />
         </div>
 
-        {/* Sign Off + Audit Trail */}
-        <div style={{ marginTop: 14, paddingBottom: 6 }}>
+        {/* Sign Off */}
+        <div style={{ marginTop: 10, paddingBottom: 0 }}>
+          {signOffState === 'idle' && (
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              marginBottom: 8, cursor: 'pointer', userSelect: 'none',
+            }}>
+              <input
+                type="checkbox"
+                checked={safetyAcknowledged}
+                onChange={e => setSafetyAcknowledged(e.target.checked)}
+                style={{ accentColor: '#1A7042', width: 13, height: 13, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span style={{
+                fontSize: 10.5, lineHeight: 1.3,
+                color: safetyAcknowledged ? '#1A7042' : 'rgba(0,0,0,0.45)',
+                fontWeight: safetyAcknowledged ? 600 : 400,
+                transition: 'color 150ms, font-weight 150ms',
+              }}>
+                I've reviewed safety &amp; compliance findings
+              </span>
+            </label>
+          )}
           {signOffState === 'signed' ? (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
@@ -342,7 +545,7 @@ export default function SynthesisPanel({
               borderTop: '1px solid rgba(255,255,255,0.95)',
               boxShadow: '0 1px 3px rgba(26,110,60,0.07), inset 0 1px 0 rgba(255,255,255,1)',
             }}>
-              <span style={{ fontSize: 14, color: '#1A7042' }}>✓</span>
+              <span style={{ display: 'flex', alignItems: 'center' }}><CheckIcon size={14} color="#1A7042" /></span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#1A7042', lineHeight: 1.25 }}>
                   Signed off
@@ -410,58 +613,41 @@ export default function SynthesisPanel({
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
-              {/* Sign Off — primary */}
-              <button
-                onClick={() => setSignOffState('confirming')}
-                style={{
-                  flex: 1, padding: '9px 0',
-                  borderRadius: 9, border: 'none', cursor: 'pointer',
-                  fontSize: 12, fontWeight: 700, letterSpacing: '0.02em',
-                  color: '#fff',
-                  background: 'linear-gradient(135deg, #1A52A8 0%, #1a3d8a 100%)',
-                  boxShadow: '0 2px 8px rgba(26,82,168,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
-                  transition: 'opacity 120ms, box-shadow 120ms',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '0.90'
-                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(26,82,168,0.35), inset 0 1px 0 rgba(255,255,255,0.15)'
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.opacity = '1'
-                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(26,82,168,0.28), inset 0 1px 0 rgba(255,255,255,0.15)'
-                }}
-              >
-                Sign Off
-              </button>
-
-              {/* View Audit Trail — secondary */}
-              <button
-                style={{
-                  flex: 1, padding: '9px 0',
-                  borderRadius: 9, cursor: 'pointer',
-                  fontSize: 12, fontWeight: 600,
-                  color: 'rgba(0,0,0,0.55)',
-                  background: 'rgba(255,255,255,0.80)',
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  borderTop: '1px solid rgba(255,255,255,0.95)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)',
-                  transition: 'background 120ms, color 120ms',
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.97)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,0,0,0.75)'
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.80)'
-                  ;(e.currentTarget as HTMLButtonElement).style.color = 'rgba(0,0,0,0.55)'
-                }}
-              >
-                View Audit Trail
-              </button>
-            </div>
+            <button
+              onClick={() => safetyAcknowledged && setSignOffState('confirming')}
+              disabled={!safetyAcknowledged}
+              style={{
+                width: '100%', padding: '9px 0',
+                borderRadius: 9, border: 'none',
+                cursor: safetyAcknowledged ? 'pointer' : 'not-allowed',
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.02em',
+                color: '#fff',
+                background: safetyAcknowledged
+                  ? 'linear-gradient(135deg, #1A52A8 0%, #1a3d8a 100%)'
+                  : 'rgba(0,0,0,0.15)',
+                boxShadow: safetyAcknowledged
+                  ? '0 2px 8px rgba(26,82,168,0.28), inset 0 1px 0 rgba(255,255,255,0.15)'
+                  : 'none',
+                transition: 'background 200ms, box-shadow 200ms, opacity 120ms',
+              }}
+              onMouseEnter={e => {
+                if (!safetyAcknowledged) return
+                (e.currentTarget as HTMLButtonElement).style.opacity = '0.90'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(26,82,168,0.35), inset 0 1px 0 rgba(255,255,255,0.15)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.opacity = '1'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = safetyAcknowledged
+                  ? '0 2px 8px rgba(26,82,168,0.28), inset 0 1px 0 rgba(255,255,255,0.15)'
+                  : 'none'
+              }}
+            >
+              Sign Off
+            </button>
           )}
         </div>
+
+        </div>{/* end footer section */}
       </div>
     </div>
   )

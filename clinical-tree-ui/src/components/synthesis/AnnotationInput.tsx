@@ -1,28 +1,29 @@
 /** AnnotationInput — inline input that opens below a NodeSummaryLine for flag/context/challenge */
 import React, { useState, useRef, useEffect } from 'react'
 import { DoctorAnnotationType } from '../../types/tree'
+import { FlagIcon, PaperclipIcon, LightningIcon, StarFilledIcon } from '../shared/Icons'
 
-const TYPE_CONFIG: Record<DoctorAnnotationType, { icon: string; label: string; color: string; placeholder: string }> = {
+const TYPE_CONFIG: Record<DoctorAnnotationType, { icon: React.ReactNode; label: string; color: string; placeholder: string }> = {
   flag: {
-    icon: '⚑',
+    icon: <FlagIcon size={9} color="#C53D2F" />,
     label: 'Flag concern',
     color: '#C53D2F',
     placeholder: 'What is the concern? (e.g. troponin timing unclear)',
   },
   context: {
-    icon: '📎',
+    icon: <PaperclipIcon size={9} color="#3B7DD8" />,
     label: 'Add context',
     color: '#3B7DD8',
     placeholder: 'Additional clinical information...',
   },
   challenge: {
-    icon: '⚡',
+    icon: <LightningIcon size={9} color="#D4950A" />,
     label: 'Challenge reasoning',
     color: '#D4950A',
     placeholder: 'What do you disagree with?',
   },
   pin: {
-    icon: '★',
+    icon: <StarFilledIcon size={9} color="#1A52A8" />,
     label: 'Pin',
     color: '#1A52A8',
     placeholder: '',
@@ -75,7 +76,7 @@ export default function AnnotationInput({ annotationType, onSubmit, onCancel }: 
           marginBottom: 5,
         }}
       >
-        {cfg.icon} {cfg.label}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{cfg.icon} {cfg.label}</span>
       </div>
       <input
         ref={inputRef}

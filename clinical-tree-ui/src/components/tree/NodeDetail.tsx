@@ -1,24 +1,30 @@
 /** NodeDetail — compact bottom drawer for mid-chain node detail.
  *  Slides up 280px, compresses the tree viewport. Includes embedded scrubber,
- *  branch context, and action buttons. Terminal nodes use BranchConclusionPanel instead.
+ *  branch context, and navigation. Terminal nodes use BranchConclusionPanel instead.
  */
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { PositionedNode, ViewMode, DoctorAnnotationType, DoctorAnnotation } from '../../types/tree'
 import {
-  XIcon, FlagIcon, PaperclipIcon, LightningIcon, RefreshIcon,
-  ScissorsIcon, ArrowLeftIcon, ArrowRightIcon, CheckIcon, WarningIcon,
+  XIcon, CheckIcon, WarningIcon,
+  ArrowLeftIcon, ArrowRightIcon,
 } from '../shared/Icons'
+
+/** Split long prose into groups of ~2 sentences for visual breathing room.
+ *  Uses lookbehind to avoid splitting on abbreviations like "Mateo R., 8 y/o". */
+function chunkContent(text: string): string[] {
+  const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z])/).map(s => s.trim()).filter(Boolean)
+  if (sentences.length <= 2) return [text]
+  const chunks: string[] = []
+  for (let i = 0; i < sentences.length; i += 2) {
+    chunks.push([sentences[i], sentences[i + 1]].filter(Boolean).join(' '))
+  }
+  return chunks
+}
 
 const TYPE_INFO: Record<string, { accent: string; label: string }> = {
   thought:  { accent: 'var(--node-thought-border)',  label: 'Reasoning'  },
   tool:     { accent: 'var(--node-tool-border)',     label: 'Tool Call'  },
   citation: { accent: 'var(--node-citation-border)', label: 'Citation'   },
-}
-
-const DOT_TYPE_COLOR: Record<string, string> = {
-  thought: '#3B7DD8',
-  tool: '#2D8A56',
-  citation: '#7B5EA7',
 }
 
 interface Props {
@@ -34,39 +40,20 @@ interface Props {
   onScrub: (index: number) => void
   onFocusBranch: (branchId: string) => void
   onAddAnnotation: (nodeId: string, type: DoctorAnnotationType, content: string) => void
-  onPruneBranch: (branchId: string) => void
 }
-
-type ActiveAction = 'flag' | 'context' | 'challenge' | null
 
 const DRAWER_HEIGHT = 280
 
 export default function NodeDetail({
-  node, allNodes, branchNodeIds, selectedNodeIndex, viewMode, annotations,
-  onClose, onNavigateNext, onNavigatePrev, onScrub, onFocusBranch,
-  onAddAnnotation, onPruneBranch,
+  node, allNodes, branchNodeIds, selectedNodeIndex, viewMode,
+  onClose, onNavigateNext, onNavigatePrev, onFocusBranch,
 }: Props) {
   const [visible, setVisible] = useState(false)
-  const [activeAction, setActiveAction] = useState<ActiveAction>(null)
-  const [actionInput, setActionInput] = useState('')
-  const [rerunActive, setRerunActive] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const scrubTrackRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(id)
   }, [])
-
-  useEffect(() => {
-    setActiveAction(null)
-    setActionInput('')
-    setRerunActive(false)
-  }, [node.id])
-
-  useEffect(() => {
-    if (activeAction && inputRef.current) inputRef.current.focus()
-  }, [activeAction])
 
   // ── Node type / accent ─────────────────────────────────────────────────────
   const isAssessment = node.is_reasoning_start ?? false
@@ -92,59 +79,41 @@ export default function NodeDetail({
   const branchOutcome = terminalNode?.diagnosis ?? null
   const branchLabel   = node.branch_id === 'primary' ? 'Primary path' : node.branch_id
 
-  // ── Prev / next nodes along branch ────────────────────────────────────────
-  const prevNode = selectedNodeIndex > 0
-    ? allNodes.find(n => n.id === branchNodeIds[selectedNodeIndex - 1]) ?? null
-    : null
-  const nextNode = selectedNodeIndex < branchNodeIds.length - 1
-    ? allNodes.find(n => n.id === branchNodeIds[selectedNodeIndex + 1]) ?? null
-    : null
-
   // ── Decision-point children ────────────────────────────────────────────────
   const childNodes = isDecision ? allNodes.filter(n => node.children.includes(n.id)) : []
 
-  // ── Node annotations ───────────────────────────────────────────────────────
-  const nodeAnnotations = annotations.filter(a => a.nodeId === node.id)
-
-  // ── Scrubber interaction ───────────────────────────────────────────────────
-  function indexFromPointer(e: React.PointerEvent | PointerEvent): number {
-    const track = scrubTrackRef.current
-    if (!track || branchNodeIds.length <= 1) return selectedNodeIndex
-    const rect = track.getBoundingClientRect()
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    return Math.round(ratio * (branchNodeIds.length - 1))
-  }
-
-  function handleScrubPointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    onScrub(indexFromPointer(e))
-    e.currentTarget.setPointerCapture(e.pointerId)
-  }
-
-  function handleScrubPointerMove(e: React.PointerEvent) {
-    if (e.buttons > 0) onScrub(indexFromPointer(e))
-  }
-
-  function handleActionSubmit() {
-    if (!actionInput.trim() || !activeAction) return
-    onAddAnnotation(node.id, activeAction, actionInput.trim())
-    setActiveAction(null)
-    setActionInput('')
-  }
-
-  function handleRerun() {
-    setRerunActive(true)
-    setTimeout(() => setRerunActive(false), 3000)
-  }
-
-  // ── Source display ─────────────────────────────────────────────────────────
-  const sourceText = node.type === 'tool' && node.tool_name
+  // ── Source badge — tool calls only (citations show full attribution in body) ─
+  const sourceBadge = node.type === 'tool' && node.tool_name
     ? `${node.tool_name}${node.latency_ms ? ` · ${node.latency_ms}ms` : ''}`
-    : node.source ?? null
+    : null
+
+  // ── Parent tool node — for citations that were retrieved by a tool call ────
+  const parentToolNode = node.type === 'citation'
+    ? allNodes.find(n => n.id === node.parent_id && n.type === 'tool') ?? null
+    : null
+
+  // ── Per-branch terminal info for decision paths ────────────────────────────
+  function getBranchTerminal(branchId: string) {
+    return allNodes.find(n => n.branch_id === branchId && n.isTerminal) ?? null
+  }
+  function getBranchPathPreview(child: PositionedNode) {
+    const terminal = getBranchTerminal(child.branch_id)
+    if (!terminal) return null
+    return terminal.diagnosis ?? terminal.headline ?? null
+  }
+  function getPathDotColor(child: PositionedNode) {
+    const terminal = getBranchTerminal(child.branch_id)
+    if (!terminal) return 'rgba(0,0,0,0.18)'
+    if (terminal.shield_severity) return '#B37A0A'
+    if (child.isOnPrimaryPath) return '#1A5FB4'
+    return 'rgba(0,0,0,0.22)'
+  }
 
   return (
     <div
       style={{
+        position: 'relative',
+        zIndex: 20,
         height: visible ? DRAWER_HEIGHT : 0,
         transition: 'height 300ms ease-out',
         overflow: 'hidden',
@@ -158,7 +127,7 @@ export default function NodeDetail({
     >
       <div style={{ height: DRAWER_HEIGHT, display: 'flex', flexDirection: 'column' }}>
 
-        {/* ── Header: type, step, branch label, outcome, close ── */}
+        {/* ── Header: type, step, branch label, source badge, nav arrows, close ── */}
         <div style={{
           padding: '8px 14px 7px',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
@@ -179,19 +148,10 @@ export default function NodeDetail({
               <span style={{ fontSize: 8.5, color: 'rgba(0,0,0,0.28)', letterSpacing: '0.02em' }}>
                 Step {selectedNodeIndex + 1} of {branchNodeIds.length}
               </span>
-              {nodeAnnotations.length > 0 && (
-                <span style={{
-                  fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
-                  background: 'rgba(185,50,38,0.08)', color: '#b83226',
-                  border: '1px solid rgba(185,50,38,0.18)',
-                }}>
-                  {nodeAnnotations.length} note{nodeAnnotations.length > 1 ? 's' : ''}
-                </span>
-              )}
             </div>
             {/* Row 2: headline */}
             <div style={{
-              fontSize: 13, fontWeight: 600, color: '#111', lineHeight: 1.25,
+              fontSize: 22, fontWeight: 600, color: '#111', lineHeight: 1.25,
               fontFamily: 'system-ui, -apple-system, sans-serif',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
@@ -210,6 +170,57 @@ export default function NodeDetail({
               )}
             </div>
           </div>
+
+          {/* Source badge — only rendered when there's a real source */}
+          {sourceBadge && (
+            <span style={{
+              fontSize: 9, fontWeight: 500,
+              color: 'rgba(0,0,0,0.38)',
+              background: 'rgba(0,0,0,0.05)',
+              border: '1px solid rgba(0,0,0,0.09)',
+              borderRadius: 5,
+              padding: '2px 7px',
+              whiteSpace: 'nowrap',
+              maxWidth: 180,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              flexShrink: 0,
+            }}>
+              {sourceBadge}
+            </span>
+          )}
+
+          {/* ← → navigation arrows */}
+          <button
+            onClick={onNavigatePrev}
+            disabled={selectedNodeIndex === 0}
+            style={{
+              width: 26, height: 26, borderRadius: 7,
+              background: selectedNodeIndex > 0 ? 'rgba(26,82,168,0.07)' : 'rgba(0,0,0,0.03)',
+              border: selectedNodeIndex > 0 ? '1px solid rgba(26,82,168,0.18)' : '1px solid rgba(0,0,0,0.07)',
+              color: selectedNodeIndex > 0 ? '#1A52A8' : 'rgba(0,0,0,0.2)',
+              cursor: selectedNodeIndex > 0 ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, transition: 'all 120ms ease-out',
+            }}
+          >
+            <ArrowLeftIcon size={11} color={selectedNodeIndex > 0 ? '#1A52A8' : 'rgba(0,0,0,0.2)'} />
+          </button>
+          <button
+            onClick={onNavigateNext}
+            disabled={selectedNodeIndex >= branchNodeIds.length - 1}
+            style={{
+              width: 26, height: 26, borderRadius: 7,
+              background: selectedNodeIndex < branchNodeIds.length - 1 ? 'rgba(26,82,168,0.07)' : 'rgba(0,0,0,0.03)',
+              border: selectedNodeIndex < branchNodeIds.length - 1 ? '1px solid rgba(26,82,168,0.18)' : '1px solid rgba(0,0,0,0.07)',
+              color: selectedNodeIndex < branchNodeIds.length - 1 ? '#1A52A8' : 'rgba(0,0,0,0.2)',
+              cursor: selectedNodeIndex < branchNodeIds.length - 1 ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, transition: 'all 120ms ease-out',
+            }}
+          >
+            <ArrowRightIcon size={11} color={selectedNodeIndex < branchNodeIds.length - 1 ? '#1A52A8' : 'rgba(0,0,0,0.2)'} />
+          </button>
           <button
             onClick={onClose}
             style={{
@@ -223,431 +234,261 @@ export default function NodeDetail({
           </button>
         </div>
 
-        {/* ── Mini scrubber ── */}
-        <div
-          ref={scrubTrackRef}
-          onPointerDown={handleScrubPointerDown}
-          onPointerMove={handleScrubPointerMove}
-          style={{
-            padding: '0 14px',
-            height: 24,
-            display: 'flex',
-            alignItems: 'center',
-            position: 'relative',
-            cursor: 'pointer',
-            flexShrink: 0,
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-            userSelect: 'none',
-          }}
-        >
-          {/* Track line */}
-          <div style={{
-            position: 'absolute', left: 14, right: 14, top: '50%',
-            height: 1.5, background: 'rgba(0,0,0,0.08)',
-            transform: 'translateY(-50%)', borderRadius: 1,
-          }} />
-          {/* Progress fill */}
-          <div style={{
-            position: 'absolute', left: 14,
-            width: branchNodeIds.length > 1
-              ? `calc(${(selectedNodeIndex / (branchNodeIds.length - 1)) * 100}% - ${(selectedNodeIndex / (branchNodeIds.length - 1)) * 28}px + ${selectedNodeIndex > 0 ? 0 : 0}px)`
-              : '0%',
-            top: '50%', height: 1.5,
-            background: `${accent}66`,
-            transform: 'translateY(-50%)', borderRadius: 1,
-            transition: 'width 150ms ease-out',
-          }} />
-          {/* Dots */}
-          {branchNodeIds.map((id, i) => {
-            const n = allNodes.find(nd => nd.id === id)
-            const isSelected = i === selectedNodeIndex
-            const dotColor = n?.is_decision_point ? '#D4950A'
-              : DOT_TYPE_COLOR[n?.type ?? 'thought'] ?? '#888'
-            const left = branchNodeIds.length > 1
-              ? `${(i / (branchNodeIds.length - 1)) * 100}%`
-              : '50%'
-            return (
-              <div
-                key={id}
-                onClick={e => { e.stopPropagation(); onScrub(i) }}
-                style={{
-                  position: 'absolute',
-                  left,
-                  transform: 'translateX(-50%)',
-                  width:  isSelected ? 10 : 6,
-                  height: isSelected ? 10 : 6,
-                  borderRadius: '50%',
-                  background: isSelected ? dotColor : `${dotColor}88`,
-                  border: isSelected ? `2px solid ${dotColor}` : `1.5px solid rgba(255,255,255,0.8)`,
-                  boxShadow: isSelected ? `0 0 0 2px ${dotColor}30` : 'none',
-                  transition: 'all 150ms ease-out',
-                  zIndex: isSelected ? 2 : 1,
-                }}
-                title={n?.headline ?? id}
-              />
-            )
-          })}
-        </div>
+        {/* ── Full-width body ── */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '9px 16px', gap: 8, minHeight: 0 }}>
 
-        {/* ── Two-column body ── */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+          {/* Scrollable content area */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-          {/* LEFT — 58%: content + reasoning context + decision branches */}
-          <div style={{
-            width: '58%',
-            borderRight: '1px solid rgba(0,0,0,0.05)',
-            overflow: 'hidden',
-            padding: '9px 13px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}>
-            {/* Content — scrollable within its own flex item */}
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              {/* Patient context — assessment nodes only */}
-              {isAssessment && (node.patient_context_summary || node.patient_vitals_summary) && (
-                <div style={{
-                  padding: '6px 9px', marginBottom: 7,
-                  background: 'rgba(26,95,180,0.05)',
-                  borderRadius: 6, border: '1px solid rgba(26,95,180,0.12)',
-                }}>
-                  {node.patient_context_summary && (
-                    <div style={{ fontSize: 11.5, fontWeight: 500, color: 'rgba(0,0,0,0.75)', marginBottom: 1 }}>
-                      {node.patient_context_summary}
-                    </div>
-                  )}
-                  {node.patient_vitals_summary && (
-                    <div style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.45)' }}>
-                      {node.patient_vitals_summary}
-                    </div>
-                  )}
-                </div>
-              )}
-              <p style={{
-                fontSize: 12, lineHeight: 1.6, color: 'rgba(0,0,0,0.7)',
-                margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif',
-              }}>
-                {node.content}
-              </p>
-              {viewMode === 'architecture' && (node.tool_name || node.latency_ms) && (
-                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
-                  {node.tool_name && (
-                    <span style={{
-                      fontSize: 9.5, fontWeight: 600, padding: '2px 7px',
-                      background: 'rgba(45,138,86,0.08)', color: '#2D8A56',
-                      border: '1px solid rgba(45,138,86,0.18)', borderRadius: 5,
-                    }}>
-                      {node.tool_name}
-                    </span>
-                  )}
-                  {node.latency_ms && (
-                    <span style={{
-                      fontSize: 9.5, fontWeight: 600, padding: '2px 7px',
-                      background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.45)',
-                      border: '1px solid rgba(0,0,0,0.08)', borderRadius: 5,
-                    }}>
-                      {node.latency_ms}ms
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Reasoning context — prev / next (fixed at bottom of left col) */}
-            <div style={{
-              flexShrink: 0,
-              padding: '7px 10px',
-              background: 'rgba(0,0,0,0.02)',
-              borderRadius: 6,
-              border: '1px solid rgba(0,0,0,0.06)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}>
-              {prevNode ? (
-                <button
-                  onClick={onNavigatePrev}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0,
-                  }}
-                >
-                  <ArrowLeftIcon size={11} color="rgba(0,0,0,0.32)" />
-                  <span style={{ fontSize: 11, color: '#1A52A8', lineHeight: 1.35 }}>
-                    {prevNode.headline}
-                  </span>
-                </button>
-              ) : (
-                <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.22)', fontStyle: 'italic' }}>
-                  Start of branch
-                </span>
-              )}
-              {nextNode ? (
-                <button
-                  onClick={onNavigateNext}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0,
-                  }}
-                >
-                  <ArrowRightIcon size={11} color="rgba(0,0,0,0.32)" />
-                  <span style={{ fontSize: 11, color: '#1A52A8', lineHeight: 1.35 }}>
-                    {nextNode.headline}
-                  </span>
-                </button>
-              ) : (
-                <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.22)', fontStyle: 'italic' }}>
-                  {branchOutcome ? `Diagnosis: ${branchOutcome}` : 'Terminal diagnosis'}
-                </span>
-              )}
-            </div>
-
-            {/* Decision-point branches */}
-            {isDecision && childNodes.length > 0 && (
+            {/* Patient context — assessment nodes only */}
+            {isAssessment && (node.patient_context_summary || node.patient_vitals_summary) && (
               <div style={{
-                flexShrink: 0,
-                padding: '6px 10px',
-                background: 'rgba(179,122,10,0.04)',
-                borderRadius: 6,
-                border: '1px solid rgba(179,122,10,0.14)',
-                borderLeft: '2px solid rgba(179,122,10,0.4)',
+                padding: '7px 11px',
+                background: 'rgba(26,95,180,0.05)',
+                borderRadius: 6, border: '1px solid rgba(26,95,180,0.12)',
               }}>
-                <div style={{
-                  fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em',
-                  textTransform: 'uppercase', color: '#9a6800', marginBottom: 5,
+                {node.patient_context_summary && (
+                  <div style={{ fontSize: 12, fontWeight: 500, color: 'rgba(0,0,0,0.75)', marginBottom: 2 }}>
+                    {node.patient_context_summary}
+                  </div>
+                )}
+                {node.patient_vitals_summary && (
+                  <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)' }}>
+                    {node.patient_vitals_summary}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tool name banner — always shown for tool nodes */}
+            {node.type === 'tool' && node.tool_name && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 12px',
+                background: 'rgba(45,138,86,0.07)',
+                border: '1px solid rgba(45,138,86,0.18)',
+                borderLeft: '3px solid rgba(45,138,86,0.55)',
+                borderRadius: 7,
+              }}>
+                <span style={{
+                  fontSize: 15, fontWeight: 700, color: '#2D8A56',
+                  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+                  letterSpacing: '-0.01em',
                 }}>
-                  {childNodes.length} paths from this decision
-                </div>
-                {childNodes.map(child => (
-                  <button
-                    key={child.id}
-                    onClick={() => onFocusBranch(child.branch_id)}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 5,
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      textAlign: 'left', padding: '2px 0',
-                    }}
-                  >
-                    <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.3)', marginTop: 1 }}>→</span>
-                    <span style={{ fontSize: 11, color: '#1A52A8', lineHeight: 1.3 }}>
-                      {child.headline}
-                      {child.isOnPrimaryPath && (
-                        <span style={{
-                          marginLeft: 5, fontSize: 7.5, fontWeight: 700,
-                          letterSpacing: '0.06em', textTransform: 'uppercase', color: '#1A5FB4',
-                        }}>
-                          Primary
+                  {node.tool_name}
+                </span>
+                {node.latency_ms && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 500,
+                    color: 'rgba(45,138,86,0.6)',
+                  }}>
+                    {node.latency_ms}ms
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Main content */}
+            {node.type === 'citation' ? (
+              <div style={{
+                borderLeft: '3px solid rgba(123,94,167,0.45)',
+                paddingLeft: 12,
+              }}>
+                {/* Retrieved via tool call */}
+                {parentToolNode && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    marginBottom: 10,
+                    padding: '5px 10px',
+                    background: 'rgba(45,138,86,0.06)',
+                    border: '1px solid rgba(45,138,86,0.15)',
+                    borderRadius: 6,
+                  }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(45,138,86,0.7)' }}>
+                      Retrieved via
+                    </span>
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, color: '#2D8A56',
+                      fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+                    }}>
+                      {parentToolNode.tool_name ?? parentToolNode.headline}
+                    </span>
+                    {parentToolNode.latency_ms && (
+                      <span style={{ fontSize: 11, color: 'rgba(45,138,86,0.55)', marginLeft: 'auto' }}>
+                        {parentToolNode.latency_ms}ms
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Source attribution block */}
+                {(node.source || node.source_author || node.source_chapter) && (
+                  <div style={{
+                    marginBottom: 10,
+                    paddingBottom: 9,
+                    borderBottom: '1px solid rgba(123,94,167,0.15)',
+                  }}>
+                    {node.source && (
+                      <div style={{
+                        fontSize: 12.5, fontWeight: 700, color: '#7B5EA7',
+                        fontStyle: 'italic', lineHeight: 1.35, marginBottom: 3,
+                      }}>
+                        {node.source}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 14px' }}>
+                      {node.source_author && (
+                        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', lineHeight: 1.5 }}>
+                          {node.source_author}
                         </span>
                       )}
-                    </span>
-                  </button>
+                      {node.source_chapter && (
+                        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', lineHeight: 1.5 }}>
+                          {node.source_chapter}
+                        </span>
+                      )}
+                      {node.source_pages && (
+                        <span style={{ fontSize: 11, color: 'rgba(123,94,167,0.65)', lineHeight: 1.5, fontWeight: 500 }}>
+                          {node.source_pages}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {chunkContent(node.content).map((chunk, i) => (
+                  <p key={i} style={{
+                    fontSize: 14, lineHeight: 1.7, color: 'rgba(0,0,0,0.72)',
+                    margin: 0, marginTop: i > 0 ? 10 : 0, fontStyle: 'italic',
+                    fontFamily: 'Georgia, "Times New Roman", serif',
+                  }}>
+                    {chunk}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <div>
+                {chunkContent(node.content).map((chunk, i) => (
+                  <p key={i} style={{
+                    fontSize: 14, lineHeight: 1.65, color: 'rgba(0,0,0,0.7)',
+                    margin: 0, marginTop: i > 0 ? 10 : 0,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                  }}>
+                    {chunk}
+                  </p>
                 ))}
               </div>
             )}
-          </div>
 
-          {/* RIGHT — 42%: source, shield, actions */}
-          <div style={{
-            width: '42%',
-            overflow: 'hidden',
-            padding: '9px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}>
-            {/* Source + shield — compact combined section */}
-            <div style={{
-              padding: '7px 10px',
-              background: 'rgba(0,0,0,0.02)',
-              borderRadius: 6,
-              border: '1px solid rgba(0,0,0,0.07)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 5,
-            }}>
-              {/* Source line */}
-              <div>
-                <span style={{
-                  fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em',
-                  textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)', marginRight: 5,
-                }}>
-                  Source
-                </span>
-                <span style={{
-                  fontSize: 11, color: sourceText ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-                  fontStyle: !sourceText ? 'italic' : 'normal',
-                }}>
-                  {sourceText ?? 'Model reasoning'}
-                </span>
-              </div>
-              {/* Shield line */}
-              {node.shield_checked && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{
-                    fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em',
-                    textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)',
-                  }}>
-                    Shield
-                  </span>
-                  {node.shield_severity ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#b83226' }}>
-                      <WarningIcon size={11} color="#b83226" />
-                      {node.shield_severity}
-                      {node.prune_reason && (
-                        <span style={{ fontWeight: 400, color: 'rgba(0,0,0,0.5)' }}>
-                          — {node.prune_reason}
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#2D8A56' }}>
-                      <CheckIcon size={11} color="#2D8A56" /> Checked — no issues
-                    </span>
-                  )}
-                </div>
-              )}
-              {/* Existing annotations summary */}
-              {nodeAnnotations.length > 0 && (
-                <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 5, marginTop: 1 }}>
-                  {nodeAnnotations.map(ann => (
-                    <div key={ann.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, fontSize: 10.5, color: 'rgba(0,0,0,0.55)', lineHeight: 1.4, marginBottom: 2 }}>
-                      {ann.type === 'flag'      && <FlagIcon      size={10} color="#b83226" />}
-                      {ann.type === 'context'   && <PaperclipIcon size={10} color="#1A52A8" />}
-                      {ann.type === 'challenge' && <LightningIcon size={10} color="#8a6000" />}
-                      {ann.content}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div style={{
-              padding: '7px 10px',
-              background: 'rgba(0,0,0,0.02)',
-              borderRadius: 6,
-              border: '1px solid rgba(0,0,0,0.07)',
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-            }}>
-              <span style={{
-                fontSize: 7.5, fontWeight: 700, letterSpacing: '0.1em',
-                textTransform: 'uppercase', color: 'rgba(0,0,0,0.28)',
+            {/* Tool result — suppressed when a citation child already carries the result */}
+            {node.result_summary && !(node.type === 'tool' && allNodes.some(n => n.parent_id === node.id && n.type === 'citation')) && (
+              <div style={{
+                padding: '9px 12px',
+                borderRadius: 6,
+                background: 'rgba(45,138,86,0.06)',
+                border: '1px solid rgba(45,138,86,0.16)',
+                borderLeft: '3px solid rgba(45,138,86,0.40)',
               }}>
-                Actions
-              </span>
-
-              {/* Annotation action buttons — icon chips in a row */}
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {([
-                  { id: 'flag'      as const, Icon: FlagIcon,       label: 'Flag',      color: '#b83226', bg: 'rgba(185,50,38,0.08)',  border: 'rgba(185,50,38,0.22)'  },
-                  { id: 'context'   as const, Icon: PaperclipIcon,  label: 'Context',   color: '#1A52A8', bg: 'rgba(26,82,168,0.08)', border: 'rgba(26,82,168,0.22)'  },
-                  { id: 'challenge' as const, Icon: LightningIcon,  label: 'Challenge', color: '#8a6000', bg: 'rgba(138,96,0,0.08)',  border: 'rgba(138,96,0,0.22)'   },
-                ]).map(action => (
-                  <button
-                    key={action.id}
-                    onClick={() => {
-                      setActiveAction(activeAction === action.id ? null : action.id)
-                      setActionInput('')
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '4px 9px', borderRadius: 20,
-                      background: activeAction === action.id ? action.bg : 'rgba(0,0,0,0.04)',
-                      border: activeAction === action.id
-                        ? `1px solid ${action.border}`
-                        : '1px solid rgba(0,0,0,0.1)',
-                      cursor: 'pointer', transition: 'all 120ms ease-out',
-                    }}
-                  >
-                    <action.Icon size={11} color={activeAction === action.id ? action.color : 'rgba(0,0,0,0.42)'} />
-                    <span style={{
-                      fontSize: 10, fontWeight: 600,
-                      color: activeAction === action.id ? action.color : 'rgba(0,0,0,0.5)',
-                    }}>
-                      {action.label}
-                    </span>
-                  </button>
-                ))}
+                <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#2D8A56', marginBottom: 4 }}>
+                  Result
+                </div>
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'rgba(0,0,0,0.68)', margin: 0 }}>
+                  {node.result_summary}
+                </p>
               </div>
+            )}
 
-              {/* Inline input for annotation */}
-              {activeAction && (() => {
-                const cfg = {
-                  flag:      { color: '#b83226', border: 'rgba(185,50,38,0.3)',  ph: "What's the concern?"         },
-                  context:   { color: '#1A52A8', border: 'rgba(26,82,168,0.3)',  ph: 'Additional information…'     },
-                  challenge: { color: '#8a6000', border: 'rgba(138,96,0,0.3)',   ph: 'What do you disagree with?'  },
-                }[activeAction]
-                return (
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <input
-                      ref={inputRef}
-                      value={actionInput}
-                      onChange={e => setActionInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleActionSubmit()
-                        if (e.key === 'Escape') { setActiveAction(null); setActionInput('') }
-                      }}
-                      placeholder={cfg.ph}
-                      style={{
-                        flex: 1, fontSize: 11, padding: '5px 8px',
-                        border: `1px solid ${cfg.border}`,
-                        borderRadius: 6, outline: 'none',
-                        fontFamily: 'system-ui, -apple-system, sans-serif',
-                        background: 'rgba(255,255,255,0.9)',
-                      }}
-                    />
-                    <button
-                      onClick={handleActionSubmit}
-                      style={{
-                        fontSize: 10, fontWeight: 700, padding: '5px 9px',
-                        borderRadius: 6, border: `1px solid ${cfg.border}`,
-                        background: 'rgba(0,0,0,0.04)', color: cfg.color, cursor: 'pointer',
-                      }}
-                    >
-                      Save
-                    </button>
-                  </div>
-                )
-              })()}
 
-              {/* Secondary actions — compact row */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 'auto' }}>
-                <button
-                  onClick={handleRerun}
-                  disabled={rerunActive}
-                  style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    padding: '5px 8px', borderRadius: 6,
-                    background: rerunActive ? 'rgba(59,125,216,0.07)' : 'rgba(0,0,0,0.04)',
-                    border: rerunActive ? '1px solid rgba(59,125,216,0.2)' : '1px solid rgba(0,0,0,0.1)',
-                    cursor: rerunActive ? 'default' : 'pointer',
-                    transition: 'all 120ms ease-out',
-                  }}
-                >
-                  <RefreshIcon size={11} color={rerunActive ? '#1A52A8' : 'rgba(0,0,0,0.42)'} />
-                  <span style={{ fontSize: 10, fontWeight: 500, color: rerunActive ? '#1A52A8' : 'rgba(0,0,0,0.5)' }}>
-                    {rerunActive ? 'Regenerating…' : 'Rerun'}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => onPruneBranch(node.branch_id)}
-                  style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    padding: '5px 8px', borderRadius: 6,
-                    background: 'rgba(0,0,0,0.04)',
-                    border: '1px solid rgba(0,0,0,0.1)',
-                    cursor: 'pointer', transition: 'all 120ms ease-out',
-                  }}
-                >
-                  <ScissorsIcon size={11} color="rgba(0,0,0,0.42)" />
-                  <span style={{ fontSize: 10, fontWeight: 500, color: 'rgba(0,0,0,0.5)' }}>Prune</span>
-                </button>
+            {/* Shield — inline, compact */}
+            {node.shield_checked && node.shield_severity && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 10px', borderRadius: 6,
+                background: 'rgba(185,50,38,0.04)',
+                border: '1px solid rgba(185,50,38,0.14)',
+              }}>
+                <WarningIcon size={11} color="#b83226" />
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: '#b83226' }}>
+                  {node.shield_severity}
+                </span>
+                {node.prune_reason && (
+                  <span style={{ fontSize: 10.5, color: 'rgba(0,0,0,0.45)' }}>— {node.prune_reason}</span>
+                )}
               </div>
-            </div>
+            )}
+            {node.shield_checked && !node.shield_severity && viewMode === 'architecture' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <CheckIcon size={11} color="#2D8A56" />
+                <span style={{ fontSize: 10.5, color: '#2D8A56' }}>Shield checked — no issues</span>
+              </div>
+            )}
+
+            {/* Decision-point paths — expanded, full-width */}
+            {isDecision && childNodes.length > 0 && (
+              <div style={{
+                padding: '10px 14px',
+                background: 'rgba(179,122,10,0.04)',
+                borderRadius: 8,
+                border: '1px solid rgba(179,122,10,0.14)',
+                borderLeft: '3px solid rgba(179,122,10,0.45)',
+              }}>
+                <div style={{
+                  fontSize: 8, fontWeight: 700, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: '#9a6800', marginBottom: 8,
+                }}>
+                  {childNodes.length} paths from this decision
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {childNodes.map(child => {
+                    const preview = getBranchPathPreview(child)
+                    const dotColor = getPathDotColor(child)
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => onFocusBranch(child.branch_id)}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 9,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          textAlign: 'left', padding: '4px 0',
+                          borderBottom: '1px solid rgba(0,0,0,0.05)',
+                        }}
+                      >
+                        {/* Path indicator dot */}
+                        <span style={{
+                          width: 7, height: 7, borderRadius: '50%',
+                          background: dotColor,
+                          flexShrink: 0, marginTop: 4,
+                        }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 14, fontWeight: 600, color: '#1A52A8',
+                            lineHeight: 1.35, marginBottom: preview ? 3 : 0,
+                          }}>
+                            {child.headline}
+                            {child.isOnPrimaryPath && (
+                              <span style={{
+                                marginLeft: 7, fontSize: 8, fontWeight: 700,
+                                letterSpacing: '0.06em', textTransform: 'uppercase', color: '#1A5FB4',
+                                verticalAlign: 'middle',
+                              }}>
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          {preview && (
+                            <div style={{
+                              fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.4,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              → {preview}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

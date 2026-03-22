@@ -4,7 +4,7 @@ import { PositionedNode, Connection, Convergence, FocusState, DoctorAnnotation, 
 import { buildBranchPath } from '../../data/transformer'
 import TreeNode, { FocusRole } from './TreeNode'
 import TreeConnections from './TreeConnections'
-import TerminalCard, { TerminalVariant } from './TerminalCard'
+import TerminalCard, { TerminalVariant, deriveTerminalVariant } from './TerminalCard'
 
 interface Props {
   nodes: PositionedNode[]
@@ -13,7 +13,7 @@ interface Props {
   focusState: FocusState
   prunedBranchIds: Set<string>
   pruneSourceMap: Map<string, 'shield' | 'doctor'>
-  growthCursor: number
+  growthBeat: { visibleIds: string[]; activeBranchIds: string[] | null } | null
   decisionAutoPausedNodeId: string | null
   viewMode: ViewMode
   annotations: DoctorAnnotation[]
@@ -24,17 +24,7 @@ interface Props {
 
 const CANVAS_PAD = 40
 
-function getTerminalVariant(
-  node: PositionedNode,
-  isPruned: boolean,
-  pruneSource: PruneSource | undefined,
-  convergences: Convergence[]
-): TerminalVariant {
-  if (isPruned && pruneSource === 'shield') return 'shield_killed'
-  if (isPruned) return 'doctor_pruned'
-  if (convergences.some(c => c.terminalNodeIds.includes(node.id) && c.terminalNodeIds.length > 1)) return 'converging'
-  return 'divergent'
-}
+const getTerminalVariant = deriveTerminalVariant
 
 function computeFocusRole(
   node: PositionedNode,
@@ -67,7 +57,7 @@ export default function TreeCanvas({
   focusState,
   prunedBranchIds,
   pruneSourceMap,
-  growthCursor,
+  growthBeat,
   decisionAutoPausedNodeId,
   viewMode,
   annotations,
@@ -114,10 +104,9 @@ export default function TreeCanvas({
     (a, b) => (a.step_index ?? 0) - (b.step_index ?? 0)
   )
 
-  // Map each node to its position in the sorted order so visibility checks use
-  // array index (not step_index). Multiple nodes share the same step_index value
-  // (branch siblings), so step_index !== array position and the old check was wrong.
-  const nodeRevealIndex = new Map(orderedNodes.map((n, i) => [n.id, i]))
+  // Build a set of visible node IDs from the current beat.
+  // null means no growth active — all nodes are visible.
+  const growthVisibleSet = growthBeat ? new Set(growthBeat.visibleIds) : null
 
   const selectedNode =
     focusState.mode === 'branch_focused' && focusState.selectedNodeId
@@ -198,7 +187,7 @@ export default function TreeCanvas({
         isFocused={isFocused}
         prunedBranchIds={prunedBranchIds}
         pruneSourceMap={pruneSourceMap}
-        growthCursor={growthCursor}
+        growthBeat={growthBeat}
       />
 
       {/* ── Convergence dot: marks where fan-in lines terminate on the assessment node ── */}
@@ -226,36 +215,45 @@ export default function TreeCanvas({
         const focusRole = computeFocusRole(node, focusState, selectedNode, focusedNodeIds)
         const isPruned = prunedBranchIds.has(node.branch_id)
         const pruneSource = pruneSourceMap.get(node.branch_id)
-        const isVisible = (nodeRevealIndex.get(node.id) ?? 0) <= growthCursor
+        const isVisible = growthVisibleSet === null || growthVisibleSet.has(node.id)
+
+        // Growth-based dimming: when a beat specifies active branches, nodes
+        // on other branches render at reduced opacity to focus the viewer's attention.
+        const growthDimmed =
+          growthBeat != null &&
+          growthBeat.activeBranchIds != null &&
+          !growthBeat.activeBranchIds.includes(node.branch_id)
 
         if (node.isTerminal) {
           return (
-            <TerminalCard
-              key={node.id}
-              node={node}
-              variant={getTerminalVariant(node, isPruned, pruneSource, convergences)}
-              convergences={convergences}
-              focusRole={focusRole}
-              isVisible={isVisible}
-              onClick={() => onNodeClick(node.id)}
-            />
+            <g key={node.id} style={growthDimmed ? { opacity: 0.35, transition: 'opacity 300ms ease-out' } : { transition: 'opacity 300ms ease-out' }}>
+              <TerminalCard
+                node={node}
+                variant={getTerminalVariant(node, isPruned, pruneSource, convergences)}
+                convergences={convergences}
+                focusRole={focusRole}
+                isVisible={isVisible}
+                onClick={() => onNodeClick(node.id)}
+              />
+            </g>
           )
         }
 
         return (
-          <TreeNode
-            key={node.id}
-            node={node}
-            focusRole={focusRole}
-            isPruned={isPruned}
-            pruneSource={pruneSource}
-            isVisible={isVisible}
-            isDecisionAutoPaused={node.id === decisionAutoPausedNodeId}
-            isHovered={hoveredNodeId === node.id}
-            annotations={annotationsByNode.get(node.id) ?? []}
-            viewMode={viewMode}
-            onClick={() => onNodeClick(node.id)}
-          />
+          <g key={node.id} style={growthDimmed ? { opacity: 0.35, transition: 'opacity 300ms ease-out' } : { transition: 'opacity 300ms ease-out' }}>
+            <TreeNode
+              node={node}
+              focusRole={focusRole}
+              isPruned={isPruned}
+              pruneSource={pruneSource}
+              isVisible={isVisible}
+              isDecisionAutoPaused={node.id === decisionAutoPausedNodeId}
+              isHovered={hoveredNodeId === node.id}
+              annotations={annotationsByNode.get(node.id) ?? []}
+              viewMode={viewMode}
+              onClick={() => onNodeClick(node.id)}
+            />
+          </g>
         )
       })}
     </svg>

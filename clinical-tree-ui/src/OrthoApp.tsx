@@ -1,5 +1,5 @@
 /** OrthoApp — Clinical reasoning tree for the orthopedics board question demo */
-import React, { useRef, useState, useMemo } from 'react'
+import React, { useRef, useState, useMemo, useEffect } from 'react'
 import { TreeProvider, useTreeContext } from './context/TreeContext'
 import { useTreeKeyboard } from './hooks/useTreeKeyboard'
 import { useGrowthTimer } from './hooks/useGrowthTimer'
@@ -8,33 +8,45 @@ import { useGrowthCamera, GrowthCameraMode } from './hooks/useGrowthCamera'
 import { ORTHO_PATIENT_CONTEXT, orthopedicsTreeNodes } from './data/orthopedicsTree'
 import { transformTree } from './data/transformer'
 import { computeSynthesis } from './data/computeSynthesis'
-import { GrowthPlaybackState, GrowthSpeed } from './types/tree'
+import { GrowthPlaybackState, AnimationBeat } from './types/tree'
 import TreeViewport, { TreeViewportHandle } from './components/tree/TreeViewport'
 import TreeCanvas from './components/tree/TreeCanvas'
 import BranchScrubber from './components/tree/BranchScrubber'
 import GrowthControls from './components/tree/GrowthControls'
 import NodeDetail from './components/tree/NodeDetail'
 import BranchConclusionPanel from './components/tree/BranchConclusionPanel'
-import { TerminalVariant } from './components/tree/TerminalCard'
+import { TerminalVariant, deriveTerminalVariant } from './components/tree/TerminalCard'
+import TreeLegend from './components/tree/TreeLegend'
 import SynthesisPanel from './components/synthesis/SynthesisPanel'
-import AuditTrail from './components/AuditTrail'
 import { ShieldIcon } from './components/shared/Icons'
 
 // Transform once at module level
 const POSITIONED_TREE = transformTree(orthopedicsTreeNodes)
 
-function getGrowthCursor(growth: GrowthPlaybackState): number {
-  if (growth.mode === 'idle') return Infinity
-  return (growth as { cursor: number }).cursor
-}
-
 // ─── Inner layout ────────────────────────────────────────────────────────────
 function OrthoLayout() {
   const { state, dispatch } = useTreeContext()
   const viewportRef = useRef<TreeViewportHandle>(null)
-  const [showAuditTrail, setShowAuditTrail] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [cameraMode, setCameraMode] = useState<GrowthCameraMode>('follow')
+  const [synthesisPhase, setSynthesisPhase] = useState<'pre' | 'generating' | 'revealed'>('pre')
+  const prevGrowthMode = useRef<string>('idle')
+
+  // Track growth → idle transition to trigger synthesis reveal
+  useEffect(() => {
+    const prev = prevGrowthMode.current
+    const curr = state.growth.mode
+    prevGrowthMode.current = curr
+
+    if (prev === 'idle' && curr !== 'idle') {
+      // Growth just started
+      setSynthesisPhase('generating')
+    } else if (prev !== 'idle' && curr === 'idle') {
+      // Growth just completed — zoom out to overview, then reveal synthesis
+      viewportRef.current?.fitToView()
+      setSynthesisPhase('revealed')
+    }
+  }, [state.growth.mode])
 
   const canvasDims = useMemo(() => {
     const nodes = state.tree.nodes
@@ -46,11 +58,28 @@ function OrthoLayout() {
     }
   }, [state.tree.nodes])
 
+  const currentGrowthBeat = useMemo((): AnimationBeat | null => {
+    if (state.growth.mode === 'idle') return null
+    const g = state.growth as { beatIndex: number; sequence: AnimationBeat[] }
+    return g.sequence[g.beatIndex] ?? null
+  }, [state.growth])
+
   const shieldStats = useMemo(() => {
-    const cursor = getGrowthCursor(state.growth)
-    const sorted = [...state.tree.nodes].sort((a, b) => (a.step_index ?? 0) - (b.step_index ?? 0))
-    const revealedMax = cursor === Infinity ? sorted.length : Math.min(cursor + 1, sorted.length)
-    const revealed = sorted.slice(0, revealedMax)
+    if (state.growth.mode === 'idle') {
+      // All nodes visible
+      const allNodes = state.tree.nodes
+      const checkedRevealed = allNodes.filter(n => n.shield_checked)
+      const violationsRevealed = allNodes.filter(n => n.shield_severity)
+      return {
+        checked: checkedRevealed.length,
+        passed: checkedRevealed.length - violationsRevealed.length,
+        violations: violationsRevealed.length,
+      }
+    }
+    const g = state.growth as { beatIndex: number; sequence: { visibleIds: string[] }[] }
+    const beat = g.sequence[g.beatIndex]
+    const visibleSet = beat ? new Set(beat.visibleIds) : new Set<string>()
+    const revealed = state.tree.nodes.filter(n => visibleSet.has(n.id))
     const checkedRevealed = revealed.filter(n => n.shield_checked)
     const violationsRevealed = revealed.filter(n => n.shield_severity)
     return {
@@ -86,155 +115,6 @@ function OrthoLayout() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-
-      {/* ── Patient context bar ── */}
-      <header
-        className="flex items-center gap-0 shrink-0 border-b"
-        style={{
-          padding: '9px 20px',
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderColor: 'rgba(0,0,0,0.07)',
-        }}
-      >
-        {/* Patient identity chip */}
-        <div
-          className="flex items-center gap-2 pr-5 mr-5 shrink-0"
-          style={{ borderRight: '1px solid rgba(0,0,0,0.09)' }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              <span style={{
-                fontSize: 7, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                color: '#6B40BD', background: 'rgba(107,64,189,0.08)',
-                border: '1px solid rgba(107,64,189,0.2)', borderRadius: 4, padding: '1.5px 5px',
-              }}>
-                {ORTHO_PATIENT_CONTEXT.domain}
-              </span>
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#111', lineHeight: 1.1 }}>
-              {ORTHO_PATIENT_CONTEXT.name}
-            </div>
-            <div style={{ fontSize: 10, color: 'rgba(0,0,0,0.42)', marginTop: 1 }}>
-              {ORTHO_PATIENT_CONTEXT.age}
-            </div>
-          </div>
-        </div>
-
-        {/* Transcript quote */}
-        <div className="flex-1 min-w-0 pr-5">
-          <div style={{
-            fontSize: 8, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
-            color: 'rgba(0,0,0,0.32)', marginBottom: 3,
-          }}>
-            {ORTHO_PATIENT_CONTEXT.transcript.speaker}
-          </div>
-          <div style={{
-            fontSize: 11.5, fontStyle: 'italic', color: '#222', lineHeight: 1.4,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {ORTHO_PATIENT_CONTEXT.transcript.quote}
-          </div>
-        </div>
-
-        {/* Clinical tags */}
-        <div className="flex items-center gap-1.5 shrink-0 pr-5 mr-5" style={{ borderRight: '1px solid rgba(0,0,0,0.09)' }}>
-          {ORTHO_PATIENT_CONTEXT.clinicalTags.map(tag => (
-            <span key={tag} style={{
-              fontSize: 9, fontWeight: 600, color: 'rgba(0,0,0,0.52)',
-              background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.09)',
-              borderRadius: 5, padding: '2px 7px', whiteSpace: 'nowrap',
-            }}>
-              {tag}
-            </span>
-          ))}
-        </div>
-
-        {/* Right controls */}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-
-          {/* Back to patient case */}
-          <a
-            href="/"
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-              padding: '5px 12px',
-              borderRadius: 20,
-              background: 'rgba(0,0,0,0.04)',
-              border: '1px solid rgba(0,0,0,0.1)',
-              color: 'rgba(0,0,0,0.5)',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            ← Chest pain case
-          </a>
-
-          {/* Start Growth */}
-          {state.growth.mode === 'idle' && (
-            <button
-              onClick={() => dispatch({ type: 'START_GROWTH', speed: 200 })}
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                padding: '5px 14px',
-                borderRadius: 20,
-                background: 'rgba(59,125,216,0.1)',
-                border: '1px solid rgba(59,125,216,0.25)',
-                color: '#1A52A8',
-                cursor: 'pointer',
-                transition: 'all 150ms ease-out',
-              }}
-            >
-              ▶ Start reasoning
-            </button>
-          )}
-
-          {/* Audit trail toggle */}
-          <button
-            onClick={() => setShowAuditTrail(s => !s)}
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.06em',
-              padding: '5px 12px',
-              borderRadius: 20,
-              background: showAuditTrail ? 'rgba(45,138,86,0.1)' : 'rgba(0,0,0,0.05)',
-              border: showAuditTrail ? '1px solid rgba(45,138,86,0.3)' : '1px solid rgba(0,0,0,0.1)',
-              color: showAuditTrail ? '#2D8A56' : 'rgba(0,0,0,0.5)',
-              cursor: 'pointer',
-              transition: 'all 150ms ease-out',
-            }}
-          >
-            Audit trail {state.auditLog.length > 0 && `(${state.auditLog.length})`}
-          </button>
-
-          {/* View mode toggle */}
-          <button
-            onClick={() => dispatch({ type: 'TOGGLE_VIEW_MODE' })}
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              padding: '5px 12px',
-              borderRadius: 20,
-              background: state.viewMode === 'architecture' ? 'rgba(59,125,216,0.12)' : 'rgba(59,125,216,0.07)',
-              border: '1px solid rgba(59,125,216,0.18)',
-              color: '#1A52A8',
-              cursor: 'pointer',
-            }}
-          >
-            {state.viewMode === 'clinical' ? 'Clinical view' : 'Architecture view'}
-          </button>
-        </div>
-      </header>
 
       {/* ── Two-panel content area ── */}
       <div className="flex flex-1 overflow-hidden">
@@ -294,7 +174,7 @@ function OrthoLayout() {
                 focusState={state.focusState}
                 prunedBranchIds={state.prunedBranchIds}
                 pruneSourceMap={state.pruneSourceMap}
-                growthCursor={getGrowthCursor(state.growth)}
+                growthBeat={currentGrowthBeat}
                 decisionAutoPausedNodeId={
                   state.growth.mode === 'paused_at_decision'
                     ? state.growth.decisionNodeId
@@ -314,14 +194,9 @@ function OrthoLayout() {
             const branchId = selectedNode.branch_id
             const isPruned = state.prunedBranchIds.has(branchId)
             const pruneSource = state.pruneSourceMap.get(branchId)
-            const isShieldKilled = isPruned && pruneSource === 'shield'
-            const isConverging = !isPruned && state.tree.convergences.some(
-              c => c.terminalNodeIds.includes(selectedNode.id) && c.terminalNodeIds.length > 1
+            const variant: TerminalVariant = deriveTerminalVariant(
+              selectedNode, isPruned, pruneSource, state.tree.convergences
             )
-            const variant: TerminalVariant = isShieldKilled ? 'shield_killed'
-              : isPruned ? 'doctor_pruned'
-              : isConverging ? 'converging'
-              : 'divergent'
             const branchSummary = synthesis.branches.find(b => b.branchId === branchId) ?? null
             const rejectedPath = synthesis.rejectedPaths.find(r => r.branchId === branchId) ?? null
             return (
@@ -382,6 +257,39 @@ function OrthoLayout() {
             />
           )}
 
+          {/* Legend — shifts up when GrowthControls bar is visible */}
+          <TreeLegend bottomOffset={state.growth.mode !== 'idle' ? 72 : 16} />
+
+          {/* Start Reasoning — bottom-right, clear of legend */}
+          {state.growth.mode === 'idle' && (
+            <button
+              onClick={() => dispatch({ type: 'START_GROWTH' })}
+              style={{
+                position: 'absolute',
+                bottom: 16,
+                right: 16,
+                zIndex: 10,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                padding: '6px 16px',
+                borderRadius: 20,
+                background: 'rgba(255,255,255,0.88)',
+                backdropFilter: 'blur(18px)',
+                WebkitBackdropFilter: 'blur(18px)',
+                border: '1px solid rgba(59,125,216,0.28)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)',
+                color: '#1A52A8',
+                cursor: 'pointer',
+                transition: 'background 140ms ease-out',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.96)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.88)')}
+            >
+              ▶ Start reasoning
+            </button>
+          )}
+
           {/* GrowthControls */}
           {state.growth.mode !== 'idle' && (
             <GrowthControls
@@ -393,7 +301,6 @@ function OrthoLayout() {
               onPause={() => dispatch({ type: 'PAUSE_GROWTH' })}
               onStepForward={() => dispatch({ type: 'STEP_FORWARD' })}
               onStepBackward={() => dispatch({ type: 'STEP_BACKWARD' })}
-              onSetSpeed={(speed: GrowthSpeed) => dispatch({ type: 'SET_GROWTH_SPEED', speed })}
               onSkipToEnd={() => dispatch({ type: 'SKIP_TO_END' })}
             />
           )}
@@ -402,6 +309,7 @@ function OrthoLayout() {
         {/* ── Synthesis panel — 35% ── */}
         <SynthesisPanel
           synthesis={synthesis}
+          synthesisPhase={synthesisPhase}
           focusState={state.focusState}
           annotations={state.annotations}
           pinnedBranchId={state.pinnedBranchId}
@@ -417,55 +325,19 @@ function OrthoLayout() {
           onUnpinBranch={() => dispatch({ type: 'UNPIN_BRANCH' })}
           onAnnotate={(nodeId, type, content) => dispatch({ type: 'ADD_ANNOTATION', nodeId, annotationType: type, content })}
           onRemoveAnnotation={annotationId => dispatch({ type: 'REMOVE_ANNOTATION', annotationId })}
+          onAddReview={(diagnosis, rating, text) => dispatch({
+            type: 'APPEND_AUDIT',
+            entry: {
+              type: 'doctor',
+              summary: `Reviewed "${diagnosis}"${rating ? ` — ${rating === 'up' ? 'Agreed ↑' : 'Disagreed ↓'}` : ''}${text ? `: ${text.slice(0, 60)}${text.length > 60 ? '…' : ''}` : ''}`,
+              detail: text || null,
+              nodeId: null,
+              branchId: null,
+            },
+          })}
         />
       </div>
 
-      {/* ── Audit trail ── */}
-      {showAuditTrail && (
-        <div
-          style={{
-            height: 180,
-            borderTop: '1px solid rgba(0,0,0,0.09)',
-            background: 'rgba(252,252,253,0.97)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            display: 'flex',
-            flexDirection: 'column',
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              padding: '8px 20px 0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              borderBottom: '1px solid rgba(0,0,0,0.05)',
-              paddingBottom: 7,
-            }}
-          >
-            <span style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.35)' }}>
-              Activity log
-            </span>
-            <button
-              onClick={() => setShowAuditTrail(false)}
-              style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(0,0,0,0.3)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
-            >
-              ✕
-            </button>
-          </div>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <AuditTrail
-              auditLog={state.auditLog}
-              tree={state.tree}
-              onEntryClick={entry => {
-                if (entry.nodeId) dispatch({ type: 'SELECT_NODE', nodeId: entry.nodeId })
-                else if (entry.branchId) dispatch({ type: 'FOCUS_BRANCH', branchId: entry.branchId })
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

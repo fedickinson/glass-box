@@ -1,7 +1,8 @@
-/** GrowthControls — play/pause/step/speed/skip bar shown during growth playback */
+/** GrowthControls — play/pause/step/skip bar shown during growth playback */
 import React from 'react'
-import { GrowthPlaybackState, GrowthSpeed } from '../../types/tree'
+import { GrowthPlaybackState } from '../../types/tree'
 import { GrowthCameraMode } from '../../hooks/useGrowthCamera'
+import { PlayIcon, PauseIcon, LightningIcon } from '../shared/Icons'
 
 interface Props {
   growth: GrowthPlaybackState
@@ -12,21 +13,18 @@ interface Props {
   onPause: () => void
   onStepForward: () => void
   onStepBackward: () => void
-  onSetSpeed: (speed: GrowthSpeed) => void
   onSkipToEnd: () => void
 }
 
-const SPEEDS: GrowthSpeed[] = [400, 200, 100]
-const SPEED_LABELS: Record<GrowthSpeed, string> = { 400: 'Slow', 200: 'Normal', 100: 'Fast' }
-
-function getCursor(growth: GrowthPlaybackState): number {
+function getBeatIndex(growth: GrowthPlaybackState): number {
   if (growth.mode === 'idle') return 0
-  return (growth as { cursor: number }).cursor
+  return (growth as { beatIndex: number }).beatIndex
 }
 
-function getCurrentSpeed(growth: GrowthPlaybackState): GrowthSpeed {
-  if (growth.mode === 'playing') return growth.speed
-  return 200
+function getTotalBeats(growth: GrowthPlaybackState): number {
+  if (growth.mode === 'idle') return 0
+  const seq = (growth as { sequence: unknown[] }).sequence
+  return seq?.length ?? 0
 }
 
 export default function GrowthControls({
@@ -38,15 +36,14 @@ export default function GrowthControls({
   onPause,
   onStepForward,
   onStepBackward,
-  onSetSpeed,
   onSkipToEnd,
 }: Props) {
-  const cursor = getCursor(growth)
+  const beatIndex = getBeatIndex(growth)
+  const totalBeats = getTotalBeats(growth)
   const isPlaying = growth.mode === 'playing'
   const isPausedAtDecision = growth.mode === 'paused_at_decision'
   const isPausedExploring = growth.mode === 'paused_exploring'
-  const currentSpeed = getCurrentSpeed(growth)
-  const progress = totalNodes > 1 ? cursor / (totalNodes - 1) : 0
+  const progress = totalBeats > 1 ? beatIndex / (totalBeats - 1) : 0
 
   const btnBase: React.CSSProperties = {
     display: 'flex',
@@ -92,7 +89,7 @@ export default function GrowthControls({
             flexShrink: 0,
           }}
         >
-          ⚡ Decision point
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><LightningIcon size={10} color="#B8800A" /> Decision point</span>
         </div>
       )}
 
@@ -139,7 +136,7 @@ export default function GrowthControls({
           fontSize: 14,
         }}
       >
-        {isPlaying ? '⏸' : '▶'}
+        {isPlaying ? <PauseIcon size={12} color="currentColor" /> : <PlayIcon size={12} color="currentColor" />}
       </button>
 
       {/* Step forward */}
@@ -179,31 +176,8 @@ export default function GrowthControls({
             fontVariantNumeric: 'tabular-nums',
           }}
         >
-          {cursor + 1} / {totalNodes} nodes
+          Beat {beatIndex + 1} / {totalBeats} · {totalNodes} nodes
         </div>
-      </div>
-
-      {/* Speed buttons */}
-      <div style={{ display: 'flex', gap: 3 }}>
-        {SPEEDS.map(s => (
-          <button
-            key={s}
-            onClick={() => onSetSpeed(s)}
-            style={{
-              ...btnBase,
-              height: 24,
-              padding: '0 8px',
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              background: currentSpeed === s ? 'rgba(59,125,216,0.12)' : 'rgba(0,0,0,0.04)',
-              border: currentSpeed === s ? '1px solid rgba(59,125,216,0.3)' : '1px solid rgba(0,0,0,0.08)',
-              color: currentSpeed === s ? '#1A52A8' : 'rgba(0,0,0,0.45)',
-            }}
-          >
-            {SPEED_LABELS[s]}
-          </button>
-        ))}
       </div>
 
       {/* Camera mode toggle */}

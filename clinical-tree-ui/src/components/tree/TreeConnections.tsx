@@ -10,8 +10,8 @@ interface Props {
   isFocused: boolean
   prunedBranchIds: Set<string>
   pruneSourceMap: Map<string, 'shield' | 'doctor'>
-  /** Nodes with step_index > growthCursor are hidden; Infinity = show all */
-  growthCursor: number
+  /** Current animation beat — controls connection visibility and dimming */
+  growthBeat: { visibleIds: string[]; activeBranchIds: string[] | null } | null
 }
 
 export default function TreeConnections({
@@ -20,12 +20,21 @@ export default function TreeConnections({
   isFocused,
   prunedBranchIds,
   pruneSourceMap,
-  growthCursor,
+  growthBeat,
 }: Props) {
+  const growthVisibleSet = growthBeat ? new Set(growthBeat.visibleIds) : null
 
   return (
     <g>
       {connections.map(conn => {
+        // Only render if both endpoints are visible in the current beat
+        if (
+          growthVisibleSet !== null &&
+          (!growthVisibleSet.has(conn.sourceId) || !growthVisibleSet.has(conn.targetId))
+        ) {
+          return null
+        }
+
         const isPruned =
           prunedBranchIds.has(conn.sourceBranchId) ||
           prunedBranchIds.has(conn.targetBranchId)
@@ -42,11 +51,23 @@ export default function TreeConnections({
           focusedNodeIds.has(conn.sourceId) &&
           focusedNodeIds.has(conn.targetId)
 
+        // Growth-based dimming: when a beat specifies active branches, connections
+        // on inactive branches render at reduced opacity.
+        const growthDimmed =
+          growthBeat !== null &&
+          growthBeat.activeBranchIds !== null &&
+          !growthBeat.activeBranchIds.includes(conn.targetBranchId) &&
+          !growthBeat.activeBranchIds.includes(conn.sourceBranchId)
+
         // Compute visual style
         let stroke: string
         let strokeWidth: number
         let strokeOpacity: number
         let strokeDasharray: string | undefined
+
+        // Only the focused path gets blue treatment.
+        // In idle (nothing focused), no path is singled out.
+        const isEffectivelyPrimary = isFocused && isOnFocusedPath
 
         if (isShieldKilled) {
           stroke = '#C53D2F'
@@ -57,7 +78,7 @@ export default function TreeConnections({
           stroke = 'var(--conn-pruned-color)'
           strokeWidth = 1
           strokeOpacity = isFocused && !isOnFocusedPath ? 0.05 : 0.2
-        } else if (conn.isOnPrimaryPath) {
+        } else if (isEffectivelyPrimary) {
           stroke = 'var(--conn-primary-color)'
           strokeWidth = isOnFocusedPath ? 3 : 2.5
           strokeOpacity = isFocused && !isOnFocusedPath ? 0.1 : 0.65
@@ -83,15 +104,17 @@ export default function TreeConnections({
               stroke={resultColor}
               strokeWidth={1.5}
               strokeOpacity={isFocused && !isOnFocusedPath ? 0.06 : 0.5}
-              style={{ transition: 'stroke-opacity 200ms ease-out' }}
+              style={{ transition: 'stroke-opacity 200ms ease-out, opacity 300ms ease-out' }}
+              opacity={growthDimmed ? 0.15 : undefined}
             />
           )
         }
 
         // For primary connections: render a multi-layer bloom (outer glow + crisp)
-        if (conn.isOnPrimaryPath && !isPruned && !isShieldKilled) {
+        if (isEffectivelyPrimary && !isPruned && !isShieldKilled) {
+          const baseOpacity = growthDimmed ? 0.15 : (isFocused && !isOnFocusedPath ? 0.12 : 1)
           return (
-            <g key={conn.id} style={{ transition: 'opacity 200ms ease-out' }} opacity={isFocused && !isOnFocusedPath ? 0.12 : 1}>
+            <g key={conn.id} style={{ transition: 'opacity 200ms ease-out' }} opacity={baseOpacity}>
               <path d={conn.pathData} fill="none" stroke="rgba(59,125,216,0.10)" strokeWidth={10} />
               <path d={conn.pathData} fill="none" stroke="rgba(59,125,216,0.22)" strokeWidth={4} />
               <path
@@ -109,8 +132,9 @@ export default function TreeConnections({
         const isFromDecision =
           !conn.isOnPrimaryPath && conn.sourceBranchId === 'primary'
         if (isFromDecision && !isPruned && !isShieldKilled) {
+          const baseOpacity = growthDimmed ? 0.15 : (isFocused && !isOnFocusedPath ? 0.08 : 1)
           return (
-            <g key={conn.id} style={{ transition: 'opacity 200ms ease-out' }} opacity={isFocused && !isOnFocusedPath ? 0.08 : 1}>
+            <g key={conn.id} style={{ transition: 'opacity 200ms ease-out' }} opacity={baseOpacity}>
               <path d={conn.pathData} fill="none" stroke="rgba(154,100,0,0.10)" strokeWidth={8} strokeDasharray={strokeDasharray} />
               <path d={conn.pathData} fill="none" stroke="rgba(154,100,0,0.22)" strokeWidth={3} strokeDasharray={strokeDasharray} />
               <path
@@ -131,7 +155,7 @@ export default function TreeConnections({
             fill="none"
             stroke={stroke}
             strokeWidth={strokeWidth}
-            strokeOpacity={strokeOpacity}
+            strokeOpacity={growthDimmed ? strokeOpacity * 0.15 : strokeOpacity}
             strokeDasharray={strokeDasharray}
             style={{ transition: 'stroke-opacity 200ms ease-out, stroke-width 150ms ease-out' }}
           />

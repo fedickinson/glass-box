@@ -54,11 +54,31 @@ export function useViewportControl(
         const node = tree.nodes.find(n => n.id === highlightedNodeId)
         if (node) vp.panToNode(node)
       } else if (focusState.diagnosis !== prevDiagnosis) {
-        // New hypothesis focused — fit all branches in the group
-        const groupNodeIds = tree.nodes
-          .filter(n => focusState.branchIds.includes(n.branch_id))
-          .map(n => n.id)
-        vp.fitBranch(groupNodeIds, tree.nodes)
+        // New hypothesis focused — fit the hypothesis-specific portion of the branch.
+        // We exclude shared trunk nodes by finding the first decision point on the
+        // focused path that forks to branches outside this hypothesis group, then
+        // only framing nodes at/after that divergence point.
+        const focusedBranchNodes = tree.nodes.filter(n =>
+          focusState.branchIds.includes(n.branch_id)
+        )
+
+        let firstForkStepIndex = Infinity
+        for (const node of focusedBranchNodes) {
+          if (!node.is_decision_point) continue
+          const hasNonFocusedChild = tree.nodes.some(
+            n => n.parent_id === node.id && !focusState.branchIds.includes(n.branch_id)
+          )
+          if (hasNonFocusedChild && (node.step_index ?? Infinity) < firstForkStepIndex) {
+            firstForkStepIndex = node.step_index ?? Infinity
+          }
+        }
+
+        const cameraNodes =
+          firstForkStepIndex < Infinity
+            ? focusedBranchNodes.filter(n => (n.step_index ?? 0) >= firstForkStepIndex)
+            : focusedBranchNodes
+
+        vp.fitBranch(cameraNodes.map(n => n.id), tree.nodes)
       }
     }
   }, [focusState, tree, viewportRef])

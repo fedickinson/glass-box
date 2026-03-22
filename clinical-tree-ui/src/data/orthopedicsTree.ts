@@ -1,17 +1,17 @@
 import { TreeNode } from '../types/tree'
 
 /**
- * Orthopedics reasoning tree: Lateral condyle fracture nonunion complications
+ * Orthopedics reasoning tree: Lateral condyle fracture nonunion — Mateo R., 8 y/o M
  *
- * Question: In pediatric patients, which of the following complications has been
- * documented to occur in association with lateral condyle fracture nonunion?
+ * Patient: Right elbow valgus deformity + intermittent digital paresthesias,
+ * 5 months after lateral condyle fracture treated conservatively. Nonunion on X-ray.
  *
- * Primary path: → Progressive cubitus valgus (correct)
- * Branch A (from decision 0): → Delayed nerve symptoms (divergent)
- * Branch B (from decision 0): → Posterolateral instability (divergent)
- * Branch C (from decision 0 → decision B): → Ulnar nerve palsy (converging ×3)
- * Branch D (from decision 0 → decision B): → Radial nerve palsy (divergent)
- * Branch E (from decision primary-1): → Chronic lateral pain (divergent)
+ * Primary path → Progressive cubitus valgus
+ * Branch-nerve  → Delayed nerve symptoms (divergent)
+ * Branch-pain   → Chronic lateral pain (divergent, from dp1)
+ * Branch-instability → Posterolateral instability (divergent)
+ * Branch-ulnar / ulnar-b / ulnar-c → Ulnar nerve palsy (converging ×3) — PRIMARY
+ * Branch-radial → Radial nerve palsy (divergent)
  */
 
 export const ORTHO_PATIENT_CONTEXT = {
@@ -19,8 +19,8 @@ export const ORTHO_PATIENT_CONTEXT = {
   age: '8 y/o · M',
   domain: 'Pediatric Orthopedics',
   transcript: {
-    speaker: 'Nurse Intake Transcript',
-    quote: '"He stopped complaining about it so we figured it healed. But now his elbow bends the wrong way, and he says his fingers go numb sometimes when he\'s playing."',
+    speaker: 'Parent, via Nurse Intake',
+    quote: '"He hurt his elbow a few months ago and stopped crying, so we figured he was fine — but now his arm looks crooked and he says his fingers feel tingly."',
   },
   clinicalTags: [
     '5 mo post-injury',
@@ -39,10 +39,10 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     type: 'thought',
     headline: 'Which delayed complication fits?',
     content:
-      'Mateo R., 8 y/o male, presents with right elbow valgus deformity and intermittent digital paresthesias, 5 months after a lateral condyle fracture treated conservatively with casting. X-ray confirms nonunion at the lateral condyle. Identify the most likely documented complication driving his current presentation.',
+      'Mateo R., 8 y/o male. Parent reports he hurt his elbow a few months ago but stopped crying quickly — family assumed it had healed and discontinued follow-up. Now presenting with visible right elbow deformity and new-onset finger tingling. X-ray confirms lateral condyle nonunion at 5 months post-injury. The injury was likely undertreated; symptoms resolve the acute phase but the structural nonunion has been progressing silently. Identify the documented delayed complication driving this return visit.',
     is_reasoning_start: true,
-    patient_context_summary: 'Mateo R. · 8 y/o M · Right elbow valgus',
-    patient_vitals_summary: '5 mo post-injury · Nonunion confirmed on X-ray',
+    patient_context_summary: 'Mateo R. · 8 y/o M · delayed return, thought healed',
+    patient_vitals_summary: '5 mo post-injury · Lateral condyle nonunion on X-ray',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -56,9 +56,9 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 'root',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Delayed consequence, not acute finding',
+    headline: 'Delayed presentation after silent nonunion',
     content:
-      'Mateo\'s pain resolved weeks after casting, so the family stopped following up. Now at 5 months, he presents with structural deformity and sensory symptoms — this is a delayed complication of untreated nonunion, not an acute injury finding.',
+      'Pain resolving after casting is a recognized pattern in lateral condyle nonunion — fibrous union can stabilize symptoms short-term while the structural problem progresses. At 5 months, Mateo now shows elbow deformity and sensory changes that were not present acutely. This is a delayed complication of untreated nonunion, not a recurrence of the original fracture pain.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -72,9 +72,11 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 't0',
     branch_id: 'primary',
     type: 'tool',
-    headline: 'Search ortho refs for nonunion complications',
+    headline: 'Search: nonunion complication spectrum',
     content:
-      'Search orthopedic references for documented complications of lateral condyle fracture nonunion.',
+      'Querying orthopedic literature for documented long-term complications of pediatric lateral condyle fracture nonunion. Filtering for delayed sequelae (>3 months) with level II evidence or higher.',
+    result_summary:
+      'Search returned three primary sequelae: progressive cubitus valgus (most consistent), tardy ulnar nerve palsy secondary to valgus deformity, and lateral joint instability. Cubitus valgus appears as the upstream structural lesion that drives subsequent nerve and stability complications.',
     tool_name: 'orthopedic_search',
     latency_ms: 310,
     is_decision_point: false,
@@ -90,10 +92,13 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 'tool0',
     branch_id: 'primary',
     type: 'citation',
-    headline: 'Cubitus valgus + tardy ulnar nerve palsy',
+    headline: 'Nonunion → valgus → tardy ulnar palsy',
     content:
-      'Reference summary: lateral condyle nonunion is associated with progressive cubitus valgus and possible tardy ulnar nerve palsy.',
+      'Lateral condyle nonunion leads to asymmetric physeal growth arrest, causing progressive increase in the carrying angle (cubitus valgus). The resulting valgus deformity places chronic traction on the ulnar nerve at the cubital tunnel, producing tardy ulnar nerve palsy — a well-documented delayed neuropathy in this setting. Progressive cubitus valgus is identified as the primary structural sequela.',
     source: 'Rockwood & Wilkins: Fractures in Children, 9th ed.',
+    source_author: 'Beaty JH, Kasser JR (eds)',
+    source_chapter: 'Ch. 17 — Lateral Condyle Fractures',
+    source_pages: 'pp. 714–726',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -107,9 +112,9 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 'ref0',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Focus: deformity, instability, nerve effects',
+    headline: 'Valgus is upstream; nerve palsy is downstream',
     content:
-      'Mateo\'s exam shows right elbow valgus deformity, mildly reduced grip strength, and intermittent paresthesias in the ring and small fingers — consistent with ulnar nerve distribution. Long-term sequelae of lateral condyle nonunion center on deformity progression, nerve traction, and lateral joint instability.',
+      'The literature frames this as a cascade: nonunion → asymmetric growth → cubitus valgus → ulnar nerve traction. Mateo\'s exam findings map onto this sequence — his valgus deformity is visible, and the ring and small finger paresthesias are consistent with ulnar nerve distribution at the cubital tunnel. Both deformity and neuropathy are plausible primary answers; the question is which the literature designates as the index complication.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -123,9 +128,9 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 't1',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Eliminate distractors before branching',
+    headline: 'Narrow field: three credible paths remain',
     content:
-      'With confirmed lateral condyle nonunion and valgus deformity on exam, rule out acute-phase findings. Chronic lateral pain alone does not explain the nerve symptoms. Focus branches on structural deformity, nerve involvement, and instability — all documented delayed sequelae.',
+      'Acute pain and localized tenderness are ruled out — Mateo\'s pain resolved months ago. Chronic lateral pain alone cannot explain the nerve distribution findings. Three mechanisms remain credible: structural deformity (cubitus valgus), specific nerve entrapment (ulnar palsy from valgus stretch), and joint instability (posterolateral from loss of lateral bony restraint). Branching to evaluate each independently before converging.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -139,9 +144,9 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 't2',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Branch: deformity vs nerve vs instability',
+    headline: 'Branch: valgus vs nerve vs instability',
     content:
-      'Mateo presents with three concurrent findings: valgus deformity, ulnar-distribution paresthesias, and grip weakness. Branching to explore whether progressive cubitus valgus, tardy ulnar nerve palsy, or posterolateral instability best explains the full clinical picture.',
+      'Three concurrent findings — progressive valgus deformity, ulnar-distribution paresthesias, and reduced grip strength — each implicate a different primary mechanism. Cubitus valgus is a structural deformity directly from asymmetric growth arrest. Ulnar neuropathy could be either the primary complication or a downstream effect of the valgus. Posterolateral instability is mechanically plausible from loss of lateral bony restraint but less documented. These paths need to be evaluated independently before concluding which one the literature designates as the index complication of nonunion.',
     is_decision_point: true,
     is_pruned: false,
     pruned_by: null,
@@ -151,15 +156,15 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     step_index: 6,
   },
 
-  // ── Primary path: Deformity → Progressive cubitus valgus ─────────────────
+  // ── Primary path: Progressive cubitus valgus ──────────────────────────────
   {
     id: 't3',
     parent_id: 'dp0',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Deformity path: structural change focus',
+    headline: 'Valgus path: nonunion disrupts physeal growth',
     content:
-      'Deformity path: favor progressive structural change over isolated pain.',
+      'The lateral condyle carries the lateral physis. When nonunion persists, the lateral side stops contributing to longitudinal growth while the medial side continues — this imbalance progressively increases the carrying angle. Mateo\'s visible valgus at 5 months is early in this process; untreated, it would continue to worsen through skeletal maturity. This is a direct structural consequence, not a downstream effect.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -173,9 +178,9 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 't3',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Nonunion alters carrying angle — valgus',
+    headline: 'Carrying angle deviation — measurable, progressive',
     content:
-      'Nonunion can gradually alter carrying angle, so keep valgus in focus.',
+      'Normal carrying angle in a pediatric male is approximately 5–10°. Cubitus valgus from lateral condyle nonunion typically produces 15–30° deviation at presentation. Mateo\'s elbow visually bends outward at rest, consistent with early-to-moderate valgus. The deformity increases the moment arm on the ulnar nerve and reduces the congruence of the radiocapitellar joint — both complications stem from this single structural change.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -189,9 +194,11 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 't4',
     branch_id: 'primary',
     type: 'tool',
-    headline: 'Ref: deformity patterns after nonunion',
+    headline: 'Search: cubitus valgus as primary sequela',
     content:
-      'Pull a quick reference on classic deformity patterns after pediatric lateral condyle nonunion.',
+      'Querying for evidence that progressive cubitus valgus is classified as the primary documented complication of lateral condyle nonunion, distinct from secondary complications it produces.',
+    result_summary:
+      'Multiple sources designate cubitus valgus as the classic primary deformity following lateral condyle nonunion, occurring in the majority of untreated cases. Tardy ulnar nerve palsy is consistently described as a secondary complication of the valgus deformity, not of the nonunion directly.',
     tool_name: 'orthopedic_search',
     latency_ms: 285,
     is_decision_point: false,
@@ -207,10 +214,13 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 'tool1',
     branch_id: 'primary',
     type: 'citation',
-    headline: 'Progressive cubitus valgus — classic deformity',
+    headline: 'Cubitus valgus — primary sequela of nonunion',
     content:
-      'Reference summary: progressive cubitus valgus is the classic deformity, while pain can occur but is less definitive.',
+      'Progressive cubitus valgus is the classic and most consistently reported deformity following lateral condyle nonunion in children. It results from asymmetric physeal contribution — the nonunited fragment fails to support normal lateral growth. The deformity progresses through skeletal maturity and is the structural basis for subsequent tardy ulnar nerve palsy. Chronic lateral pain is a symptom that may accompany nonunion but is not classified as the primary documented complication.',
     source: 'Campbell\'s Operative Orthopaedics, 14th ed.',
+    source_author: 'Azar FM, Beaty JH, Canale ST (eds)',
+    source_chapter: 'Ch. 36 — Elbow Injuries in Children',
+    source_pages: 'pp. 1412–1419',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -224,25 +234,45 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     parent_id: 'ref1',
     branch_id: 'primary',
     type: 'thought',
-    headline: 'Branch: cubitus valgus vs chronic lateral pain',
+    headline: 'Branch: valgus vs lateral pain as answer',
     content:
-      'Branch: decide between progressive cubitus valgus and chronic lateral pain.',
+      'The reference search returned cubitus valgus as the primary structural sequela and lateral pain as a nonspecific accompanying symptom. However, both could plausibly describe a complication of nonunion, so this branch formally separates them. Cubitus valgus is mechanistically explained by asymmetric physeal arrest and progresses predictably. Chronic lateral pain has no specific structural mechanism tied to nonunion and does not account for Mateo\'s neurological findings. Splitting to confirm and close out the pain path.',
     is_decision_point: true,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
-    children: ['term-valgus', 'term-pain'],
+    children: ['r-valgus', 'r-pain'],
     diagnosis: null,
     step_index: 11,
   },
   {
-    id: 'term-valgus',
+    id: 'r-valgus',
     parent_id: 'dp1',
+    branch_id: 'primary',
+    type: 'thought',
+    headline: 'Valgus: strongest mechanistic link to nonunion',
+    content:
+      'Cubitus valgus is directly explained by asymmetric physeal arrest at the lateral condyle — the nonunited fragment fails to contribute to longitudinal growth while the medial physis continues normally. This produces a progressive, measurable increase in carrying angle that is visible on exam and quantifiable on radiographs. Mateo\'s visible valgus at 5 months and confirmed nonunion on X-ray both support this path. Unlike pain or instability, the deformity has a specific structural mechanism tied to the nonunion itself — it is not a downstream effect or a nonspecific symptom.',
+    is_decision_point: false,
+    is_pruned: false,
+    pruned_by: null,
+    prune_reason: null,
+    children: ['term-valgus'],
+    diagnosis: null,
+    step_index: 12,
+  },
+  {
+    id: 'term-valgus',
+    parent_id: 'r-valgus',
     branch_id: 'primary',
     type: 'citation',
     headline: 'Progressive cubitus valgus',
-    content: 'progressive cubitus valgus.',
-    source: 'Rockwood & Wilkins: Fractures in Children',
+    content:
+      'Progressive cubitus valgus is the direct structural consequence of lateral condyle nonunion. Asymmetric physeal arrest causes the carrying angle to increase progressively through skeletal maturity.',
+    source: 'Rockwood & Wilkins: Fractures in Children, 9th ed.',
+    source_author: 'Beaty JH, Kasser JR (eds)',
+    source_chapter: 'Ch. 17 — Lateral Condyle Fractures',
+    source_pages: 'pp. 714–726',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -250,24 +280,42 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     children: [],
     diagnosis: 'Progressive cubitus valgus',
     terminal_summary:
-      'Lateral condyle nonunion causes asymmetric growth arrest, progressively increasing the carrying angle into valgus. This is the classic, well-documented structural complication.',
-    next_step: 'Measure carrying angle clinically and radiographically; monitor for progressive deformity; orthopedic referral for corrective osteotomy if severe.',
-    path_label: 'Path 1: Deformity — progressive cubitus valgus',
+      'Lateral condyle nonunion arrests the lateral physis while the medial side continues to grow, producing a progressive increase in carrying angle — cubitus valgus. This is the classic primary structural complication documented across multiple pediatric orthopedic references. Mateo\'s visible valgus deformity at 5 months is early in this process; without intervention, it will worsen through skeletal maturity and place increasing traction on the ulnar nerve. This path reaches high confidence: the deformity is present on exam, confirmed by X-ray, and mechanistically explained by the nonunion.',
+    next_step: 'Measure carrying angle on bilateral AP elbow radiographs and compare to the contralateral side. If valgus angulation exceeds 15° or has progressed since the original injury films, this confirms progressive cubitus valgus secondary to lateral condyle nonunion. Serial imaging at 3-month intervals will determine rate of progression and whether corrective osteotomy is indicated before skeletal maturity. A normal or non-progressive carrying angle would require re-evaluating whether another structural mechanism is driving the deformity.',
+    path_label: 'Path 1: Structural — progressive cubitus valgus',
     terminal_safety_checks: [
       { label: 'Consistent with cited references', status: 'pass' },
-      { label: 'Age-appropriate (pediatric)', status: 'pass' },
+      { label: 'Deformity confirmed on exam and X-ray', status: 'pass' },
+      { label: 'Age-appropriate (pediatric growth plate active)', status: 'pass' },
     ],
-    step_index: 12,
+    step_index: 13,
   },
 
-  // ── Branch: Chronic lateral pain (divergent from dp1) ────────────────────
+  // ── Branch-pain: Chronic lateral pain (divergent from dp1) ───────────────
+  {
+    id: 'r-pain',
+    parent_id: 'dp1',
+    branch_id: 'branch-pain',
+    type: 'thought',
+    headline: 'Lateral pain: nonspecific, doesn\'t explain nerve findings',
+    content:
+      'Chronic lateral pain at the nonunion site is anatomically plausible — fibrous tissue and motion at the nonunion fragment can produce localized pain. However, pain alone does not explain Mateo\'s two key findings: progressive valgus deformity and ulnar-distribution paresthesias. A diagnosis of chronic lateral pain would leave both the structural deformity and the nerve symptoms unaddressed. The literature does not classify isolated lateral pain as the primary documented complication of lateral condyle nonunion — it is a symptom that may accompany the structural sequelae, not the sequela itself.',
+    is_decision_point: false,
+    is_pruned: false,
+    pruned_by: null,
+    prune_reason: null,
+    children: ['term-pain'],
+    diagnosis: null,
+    step_index: 14,
+  },
   {
     id: 'term-pain',
-    parent_id: 'dp1',
+    parent_id: 'r-pain',
     branch_id: 'branch-pain',
     type: 'citation',
     headline: 'Chronic lateral pain',
-    content: 'chronic lateral pain.',
+    content:
+      'Chronic lateral pain can occur with nonunion but is a symptom, not the structural sequela. It does not explain the nerve distribution findings in Mateo\'s presentation.',
     source: undefined,
     is_decision_point: false,
     is_pruned: false,
@@ -275,47 +323,50 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     prune_reason: null,
     children: [],
     diagnosis: 'Chronic lateral pain',
+    terminal_contradiction: 'Lateral pain is a symptom, not a structural sequela. The literature classifies cubitus valgus and tardy ulnar nerve palsy — not pain — as the primary documented complications of lateral condyle nonunion. This framing does not account for Mateo\'s neurological findings and would not direct an actionable workup.',
     terminal_summary:
-      'While lateral pain can accompany nonunion, it is not the documented classic complication — it is a symptom rather than the structural sequela.',
-    next_step: 'Rule out structural deformity first; if pain is isolated, trial activity modification and NSAIDs; reassess for nerve or mechanical cause.',
+      'Chronic lateral pain is a nonspecific symptom that can accompany lateral condyle nonunion but is not classified as the primary documented complication. It lacks the specificity and anatomical basis of cubitus valgus, and critically, pain alone does not account for Mateo\'s nerve distribution symptoms. This path diverges: lateral pain is a distractor answer that describes a symptom, not a structural sequela. References consistently distinguish it from the classic complications of nonunion.',
+    next_step: 'This is a diagnosis of exclusion and cannot be investigated in isolation. The required workup: (1) AP elbow radiographs to quantify carrying angle — if valgus is progressive, that is the primary structural diagnosis; (2) nerve conduction studies to assess ulnar function — if abnormal, tardy ulnar palsy supersedes chronic pain as the primary finding; (3) lateral pivot-shift test to exclude instability. Only if all three are negative does chronic lateral pain at the nonunion site become the working diagnosis. Confirm with localized tenderness on exam and response to a diagnostic lidocaine injection at the nonunion site.',
     path_label: 'Path 2: Symptom — chronic lateral pain',
     terminal_safety_checks: [
-      { label: 'Less specific than structural deformity', status: 'warn' },
+      { label: 'Does not explain neurological findings', status: 'warn' },
+      { label: 'Not classified as primary complication in literature', status: 'warn' },
     ],
-    step_index: 13,
+    step_index: 15,
   },
 
-  // ── Branch: Nerve-symptom path (from dp0) ────────────────────────────────
+  // ── Branch-nerve: Delayed nerve symptoms (divergent from dp0) ────────────
   {
     id: 't5',
     parent_id: 'dp0',
     branch_id: 'branch-nerve',
     type: 'thought',
-    headline: 'Nerve path: delayed neuropathy review',
+    headline: 'Nerve path: is neuropathy the primary complication?',
     content:
-      'Nerve-symptom path: check whether delayed neuropathy is actually the main complication.',
+      'Mateo\'s ring and small finger paresthesias are clearly in the ulnar distribution, consistent with cubital tunnel compression or traction. The question is whether the literature names a generic nerve complication — "delayed nerve symptoms" — as the primary documented sequela, or whether it names a specific nerve and mechanism. Generic framing loses the anatomical precision that makes the diagnosis actionable.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['t6'],
     diagnosis: null,
-    step_index: 14,
+    step_index: 16,
   },
   {
     id: 't6',
     parent_id: 't5',
     branch_id: 'branch-nerve',
     type: 'thought',
-    headline: 'Plausible but weaker than deformity path',
-    content: 'This path stays plausible, but it feels weaker than the deformity path.',
+    headline: 'Generic framing doesn\'t match literature precision',
+    content:
+      '"Delayed nerve symptoms" is a descriptor, not a diagnosis. The literature is specific: tardy ulnar nerve palsy is the named neuropathic complication, occurring secondary to progressive cubitus valgus. A non-specific nerve answer could implicate the radial or median nerve, neither of which is classically involved in this mechanism. This path reaches a terminal conclusion: the framing is too vague to be correct.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['term-nerve'],
     diagnosis: null,
-    step_index: 15,
+    step_index: 17,
   },
   {
     id: 'term-nerve',
@@ -323,7 +374,8 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     branch_id: 'branch-nerve',
     type: 'citation',
     headline: 'Delayed nerve symptoms',
-    content: 'delayed nerve symptoms.',
+    content:
+      '"Delayed nerve symptoms" is too nonspecific — the literature names tardy ulnar nerve palsy as the documented complication, driven by a specific anatomical mechanism.',
     source: undefined,
     is_decision_point: false,
     is_pruned: false,
@@ -331,78 +383,82 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     prune_reason: null,
     children: [],
     diagnosis: 'Delayed nerve symptoms',
+    terminal_contradiction: 'The orthopedic literature names tardy ulnar nerve palsy — not generic nerve symptoms — as the documented neuropathic complication. This framing identifies the right anatomical region but stops short of naming the specific nerve and mechanism. A diagnosis of "delayed nerve symptoms" is too nonspecific to guide clinical decision-making or drive an actionable workup.',
     terminal_summary:
-      'Generic delayed nerve symptoms are an incomplete framing — the specific documented complication is tardy ulnar nerve palsy secondary to progressive valgus deformity.',
-    next_step: 'Perform detailed neurological exam; identify the specific nerve and distribution before treatment planning.',
-    path_label: 'Path 3: Neural — generic delayed symptoms',
+      'This path terminates with low confidence. "Delayed nerve symptoms" is a symptom descriptor rather than a documented complication — it neither names the specific nerve nor explains the mechanism. The orthopedic literature is precise: tardy ulnar nerve palsy, secondary to progressive cubitus valgus, is the named neuropathic sequela. Choosing a generic nerve answer on a board exam or clinical note would be clinically imprecise and would not guide management. This branch is divergent: it points in the right anatomical direction but stops short of the correct answer.',
+    next_step: 'This framing is too nonspecific to investigate directly. The required step is nerve localization: order nerve conduction studies across the full upper extremity to differentiate ulnar, radial, and median nerve involvement. The paresthesia pattern in ring and small fingers is anatomically ulnar territory — if NCS confirms ulnar motor latency prolongation or reduced SNAP at the cubital tunnel, re-enter the tardy ulnar nerve palsy path with that data. If conduction is normal across all distributions, a non-neuropathic source of the paresthesias must be sought.',
+    path_label: 'Path 3: Neural — non-specific delayed symptoms',
     terminal_safety_checks: [
-      { label: 'Too non-specific for the answer', status: 'warn' },
+      { label: 'Anatomically imprecise — ulnar nerve not named', status: 'warn' },
+      { label: 'Does not specify mechanism', status: 'warn' },
     ],
-    step_index: 16,
+    step_index: 18,
   },
 
-  // ── Branch: Instability path (from dp0) ──────────────────────────────────
+  // ── Branch-instability: Posterolateral instability (divergent from dp0) ──
   {
     id: 't7',
     parent_id: 'dp0',
     branch_id: 'branch-instability',
     type: 'thought',
-    headline: 'Instability path: only if deformity weak',
+    headline: 'Instability path: lateral bony restraint lost',
     content:
-      'Instability path: only continue if deformity evidence becomes unconvincing.',
+      'The lateral condyle provides the bony lateral wall of the elbow joint. With nonunion, this restraint is structurally compromised — chronic instability is mechanically plausible. Mateo\'s grip weakness could reflect instability rather than nerve involvement. Evaluating whether posterolateral rotatory instability is a documented primary complication of lateral condyle nonunion in the pediatric literature.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['t8'],
     diagnosis: null,
-    step_index: 17,
+    step_index: 19,
   },
   {
     id: 't8',
     parent_id: 't7',
     branch_id: 'branch-instability',
     type: 'thought',
-    headline: 'Need stronger evidence before splitting',
-    content: 'Need stronger evidence before splitting this branch again.',
+    headline: 'Evidence base thinner than for valgus or nerve palsy',
+    content:
+      'Posterolateral rotatory instability is well-described in adults following lateral ligament injuries, but its documentation as a primary sequela of pediatric lateral condyle nonunion is limited compared to cubitus valgus and tardy ulnar palsy. Grip weakness in Mateo is more parsimoniously explained by ulnar nerve motor involvement than by frank instability. Continuing to a sub-branch decision to formally evaluate before closing.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['dp2'],
     diagnosis: null,
-    step_index: 18,
+    step_index: 20,
   },
   {
     id: 'dp2',
     parent_id: 't8',
     branch_id: 'branch-instability',
     type: 'thought',
-    headline: 'Branch: instability vs nerve complication',
+    headline: 'Branch: instability vs specific nerve complication',
     content:
-      'Branch: separate posterolateral instability from nerve-complication reasoning.',
+      'The instability path and the nerve path have been traveling together but now require separation. Posterolateral instability depends on whether loss of the lateral condyle as a bony restraint produces clinical laxity — this is mechanically plausible but requires its own evidence evaluation. The nerve path requires identifying which specific nerve is involved and whether the literature names a nerve complication as primary or secondary to valgus. Grip weakness in Mateo could come from either mechanism; splitting here to determine which has stronger support.',
     is_decision_point: true,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['t9', 't10'],
     diagnosis: null,
-    step_index: 19,
+    step_index: 21,
   },
   {
     id: 't9',
     parent_id: 'dp2',
     branch_id: 'branch-instability',
     type: 'thought',
-    headline: 'Instability subpath: posterolateral mechanics',
-    content: 'Instability subpath: posterolateral instability fits the mechanics better.',
+    headline: 'Instability: plausible mechanics, weak documentation',
+    content:
+      'The posterolateral instability mechanism is anatomically coherent — the nonunited condyle fails to resist valgus and rotational loads, theoretically producing ligamentous laxity over time. However, pediatric ligamentous elasticity and the dominance of bony healing responses make this less clinically prominent in children than adults. Published series on lateral condyle nonunion do not list instability as a primary outcome with the frequency or confidence of valgus deformity.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['term-instability'],
     diagnosis: null,
-    step_index: 20,
+    step_index: 22,
   },
   {
     id: 'term-instability',
@@ -410,7 +466,8 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     branch_id: 'branch-instability',
     type: 'citation',
     headline: 'Posterolateral instability',
-    content: 'posterolateral instability.',
+    content:
+      'Posterolateral instability is mechanically plausible but not the classically documented primary complication in pediatric lateral condyle nonunion series.',
     source: undefined,
     is_decision_point: false,
     is_pruned: false,
@@ -419,39 +476,45 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     children: [],
     diagnosis: 'Posterolateral instability',
     terminal_summary:
-      'Posterolateral rotatory instability is not a classically documented sequela of lateral condyle nonunion in pediatrics; the deformity and neuropathy pathway is more established.',
-    next_step: 'Stress radiographs and MRI of the elbow; lateral pivot-shift test; orthopedic evaluation for ligamentous reconstruction if confirmed.',
-    path_label: 'Path 4: Instability — posterolateral',
+      'This path terminates with low-to-moderate confidence. Posterolateral rotatory instability is anatomically plausible — the lateral condyle normally resists valgus and rotational loads, and nonunion structurally compromises this function. However, it is not the classically documented primary complication in pediatric lateral condyle nonunion literature, which consistently prioritizes cubitus valgus and tardy ulnar nerve palsy. Mateo\'s grip weakness is better explained by ulnar motor fiber involvement than frank joint instability. This answer would be an incomplete characterization of the predominant complication.',
+    next_step: 'Perform a lateral pivot-shift test under fluoroscopy. A positive result — posterolateral rotatory subluxation of the radial head relative to the capitellum — confirms this hypothesis and warrants ligamentous reconstruction evaluation. A negative pivot-shift effectively rules out clinically significant instability; the mechanical symptoms (grip weakness, sense of giving way) are then better attributed to ulnar motor fiber involvement from the valgus deformity. Stress radiographs add quantitative laxity data if the pivot-shift is equivocal.',
+    path_label: 'Path 4: Structural — posterolateral instability',
     terminal_safety_checks: [
-      { label: 'Not classically documented for this fracture', status: 'warn' },
+      { label: 'Mechanically plausible but not primary documented sequela', status: 'warn' },
+      { label: 'Less supported in pediatric series than valgus or ulnar palsy', status: 'warn' },
+      { label: 'Investigation requires fluoroscopy — radiation exposure in an 8-year-old requires clinical justification given low pre-test probability (1 of 8 paths, not classically documented for this fracture type)', status: 'flag' },
+      { label: 'Fluoroscopic pivot-shift test likely requires pediatric sedation protocol — risk-benefit assessment by pediatric orthopedics recommended before ordering', status: 'flag' },
     ],
-    step_index: 21,
+    step_index: 23,
   },
 
-  // ── Sub-branch: Neural complication (from dp2) ────────────────────────────
+  // ── Branch-ulnar: Ulnar nerve palsy sub-tree (from dp2) ──────────────────
   {
     id: 't10',
     parent_id: 'dp2',
     branch_id: 'branch-ulnar',
     type: 'thought',
-    headline: 'Neural subpath: specific nerve injuries',
-    content: 'Neural-complication subpath: only now consider specific nerve injuries.',
+    headline: 'Nerve sub-tree: identify specific nerve involved',
+    content:
+      'Splitting from the instability branch to evaluate nerve complications specifically. Mateo\'s paresthesias are in the ring and small fingers — the sensory territory of the ulnar nerve (C8/T1, dorsal cutaneous branch and palmar branch). The radial nerve supplies the dorsal thumb, index, and middle finger; median nerve supplies the palmar surface of the first three digits. Ulnar distribution is the anatomically correct localization here.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['tool2'],
     diagnosis: null,
-    step_index: 22,
+    step_index: 24,
   },
   {
     id: 'tool2',
     parent_id: 't10',
     branch_id: 'branch-ulnar',
     type: 'tool',
-    headline: 'Check: ulnar or radial neuropathy?',
+    headline: 'Search: ulnar vs radial neuropathy in valgus elbow',
     content:
-      'Check whether the cited neuropathy is classically ulnar rather than radial.',
+      'Querying for comparative evidence on ulnar vs radial nerve involvement in pediatric cubitus valgus secondary to lateral condyle nonunion. Looking for mechanism-specific documentation.',
+    result_summary:
+      'Results confirm ulnar nerve is the nerve at risk in cubitus valgus — the nerve wraps posterior to the medial epicondyle and is placed under increasing tension as the carrying angle increases. Radial nerve involvement in this setting is not documented in the reviewed series. Tardy ulnar nerve palsy is the specific named neuropathy with a defined onset pattern: onset typically 10–20 years post-injury in historical cases, but earlier in cases with significant valgus.',
     tool_name: 'orthopedic_search',
     latency_ms: 198,
     is_decision_point: false,
@@ -460,56 +523,61 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     prune_reason: null,
     children: ['ref2'],
     diagnosis: null,
-    step_index: 23,
+    step_index: 25,
   },
   {
     id: 'ref2',
     parent_id: 'tool2',
     branch_id: 'branch-ulnar',
     type: 'citation',
-    headline: 'Tardy ulnar nerve palsy — classic delayed neuropathy',
+    headline: 'Tardy ulnar nerve palsy — mechanism confirmed',
     content:
-      'Reference summary: tardy ulnar nerve palsy is the classic delayed neuropathy linked to cubitus valgus.',
+      'Tardy ulnar nerve palsy is the classic delayed neuropathic complication of cubitus valgus following lateral condyle nonunion. The ulnar nerve is tethered posterior to the medial epicondyle; progressive valgus deformity stretches the nerve over an increasing arc, producing progressive motor and sensory deficits in the ulnar distribution. Motor involvement (hypothenar wasting, intrinsic weakness) follows sensory symptoms and signals advanced compression.',
     source: 'Pediatric Orthopedics, Morrissy & Weinstein, 7th ed.',
+    source_author: 'Weinstein SL, Flynn JM (eds)',
+    source_chapter: 'Ch. 24 — The Elbow Region',
+    source_pages: 'pp. 862–878',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['dp3'],
     diagnosis: null,
-    step_index: 24,
+    step_index: 26,
   },
   {
     id: 'dp3',
     parent_id: 'ref2',
     branch_id: 'branch-ulnar',
     type: 'thought',
-    headline: 'Branch: ulnar vs radial nerve complications',
-    content: 'Branch: compare ulnar and radial nerve complications.',
+    headline: 'Branch: ulnar vs radial nerve as primary answer',
+    content:
+      'The literature names tardy ulnar nerve palsy as the delayed neuropathy, but this needs to be stress-tested against the radial nerve alternative before closing. The ulnar nerve runs posterior to the medial epicondyle and is placed under traction as the carrying angle increases — anatomically specific to valgus. The radial nerve runs anterolaterally through the radial tunnel and is not in the path of valgus-related stretch. Mateo\'s ring and small finger paresthesias are in ulnar, not radial, territory. Branching into four paths to confirm ulnar from anatomy, mechanism, and two independent references — and to formally close out radial.',
     is_decision_point: true,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['t11', 't12', 't13', 't14'],
     diagnosis: null,
-    step_index: 25,
+    step_index: 27,
   },
 
-  // Ulnar branch A
+  // ── Ulnar branch A (branch-ulnar) ────────────────────────────────────────
   {
     id: 't11',
     parent_id: 'dp3',
     branch_id: 'branch-ulnar',
     type: 'thought',
-    headline: 'Ulnar: more plausible late complication',
-    content: 'Ulnar branch: ulnar symptoms remain the more plausible late complication.',
+    headline: 'Ulnar nerve: anatomically correct for valgus stretch',
+    content:
+      'Ring and small finger paresthesias localize to ulnar nerve distribution. Valgus deformity increases the stretch on the ulnar nerve at the cubital tunnel with each degree of carrying angle increase. This mechanism is specific and directional — the further the valgus progresses, the greater the nerve tension, which explains why symptoms worsen with activity and elbow flexion.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['term-ulnar-a'],
     diagnosis: null,
-    step_index: 26,
+    step_index: 28,
   },
   {
     id: 'term-ulnar-a',
@@ -517,8 +585,12 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     branch_id: 'branch-ulnar',
     type: 'citation',
     headline: 'Ulnar nerve palsy',
-    content: 'ulnar nerve palsy.',
-    source: 'Pediatric Orthopedics, Morrissy & Weinstein',
+    content:
+      'Tardy ulnar nerve palsy is the well-documented delayed neuropathic complication of cubitus valgus following lateral condyle nonunion. Ulnar nerve distribution — ring and small finger paresthesias, hypothenar weakness — is the clinical signature.',
+    source: 'Pediatric Orthopedics, Morrissy & Weinstein, 7th ed.',
+    source_author: 'Weinstein SL, Flynn JM (eds)',
+    source_chapter: 'Ch. 24 — The Elbow Region',
+    source_pages: 'pp. 862–878',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -526,31 +598,33 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     children: [],
     diagnosis: 'Ulnar nerve palsy',
     terminal_summary:
-      'Tardy ulnar nerve palsy is the well-documented delayed neuropathic complication of progressive cubitus valgus following lateral condyle nonunion.',
-    next_step: 'Nerve conduction studies to confirm ulnar involvement; assess degree of valgus deformity; consider ulnar nerve transposition or corrective osteotomy.',
-    path_label: 'Path 5a: Ulnar — primary neuropathy path',
+      'Tardy ulnar nerve palsy is the named delayed neuropathic complication of lateral condyle nonunion, occurring as a downstream consequence of progressive cubitus valgus. The mechanism is specific: valgus deformity increases the arc of the ulnar nerve around the medial epicondyle, producing chronic traction neuropathy. Mateo\'s presentation — ring and small finger paresthesias, reduced grip, valgus deformity — is textbook. Three independent reasoning paths converge on this diagnosis, and it is confirmed by multiple pediatric orthopedic references. Confidence is high.',
+    next_step: 'Order nerve conduction studies at the cubital tunnel with the elbow in both extended and flexed positions. If ulnar motor latency is prolonged and sensory nerve action potential is reduced across the elbow segment, tardy ulnar nerve palsy is confirmed. Grade severity by the degree of latency prolongation and presence of spontaneous activity on EMG — this determines whether conservative management (elbow padding, activity modification) is sufficient or whether surgical decompression with or without transposition is indicated. If conduction is normal, deprioritize this hypothesis and evaluate whether the paresthesias reflect intermittent mechanical compression rather than chronic traction neuropathy.',
+    path_label: 'Path 5a: Neural — tardy ulnar nerve palsy',
     terminal_safety_checks: [
       { label: 'Consistent with cited literature', status: 'pass' },
-      { label: 'Secondary to cubitus valgus mechanism', status: 'pass' },
+      { label: 'Anatomically specific to valgus mechanism', status: 'pass' },
+      { label: 'Clinical findings support ulnar distribution', status: 'pass' },
     ],
-    step_index: 27,
+    step_index: 29,
   },
 
-  // Radial branch
+  // ── Branch-radial: Radial nerve palsy (divergent) ────────────────────────
   {
     id: 't12',
     parent_id: 'dp3',
     branch_id: 'branch-radial',
     type: 'thought',
-    headline: 'Radial: weak evidence this late in trace',
-    content: 'Radial branch: radial involvement still feels weak this late in the trace.',
+    headline: 'Radial nerve: wrong anatomy for this deformity',
+    content:
+      'The radial nerve courses anterolaterally through the radial tunnel before dividing into the posterior interosseous nerve. A valgus deformity at the elbow does not place the radial nerve under traction — it runs on the opposite side of the axis of deformity. Radial nerve palsy following lateral condyle fracture is an acute complication of nerve injury at the time of fracture, not a delayed sequela of nonunion with valgus.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['term-radial'],
     diagnosis: null,
-    step_index: 28,
+    step_index: 30,
   },
   {
     id: 'term-radial',
@@ -558,7 +632,8 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     branch_id: 'branch-radial',
     type: 'citation',
     headline: 'Radial nerve palsy',
-    content: 'radial nerve palsy.',
+    content:
+      'Radial nerve involvement is not anatomically consistent with the valgus mechanism of lateral condyle nonunion. The radial nerve is not the nerve at risk in cubitus valgus.',
     source: undefined,
     is_decision_point: false,
     is_pruned: false,
@@ -566,32 +641,34 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     prune_reason: null,
     children: [],
     diagnosis: 'Radial nerve palsy',
+    terminal_contradiction: 'Valgus deformity at the elbow places traction on the ulnar nerve at the cubital tunnel — not the radial nerve, which runs anterolaterally and is not stretched by increasing carrying angle. The patient\'s paresthesias in the ring and small fingers are ulnar distribution, not radial. Radial nerve palsy following lateral condyle fracture is an acute injury complication, not a delayed sequela of progressive valgus. The anatomy does not support this hypothesis for this presentation.',
     terminal_summary:
-      'Radial nerve involvement is not the classic complication of lateral condyle nonunion — the anatomy of the valgus deformity stretches the ulnar nerve, not the radial.',
-    next_step: 'Nerve conduction studies to rule out radial involvement; re-evaluate carrying angle and ulnar nerve function; correct the diagnosis if ulnar signs are present.',
-    path_label: 'Path 5b: Radial — incorrect nerve',
+      'This path terminates with high confidence in the wrong direction. Radial nerve palsy is anatomically inconsistent with cubitus valgus — the radial nerve runs anterolaterally and is not placed under traction by increasing carrying angle. Radial nerve injury in elbow fractures is an acute finding from direct nerve damage, not a delayed complication of valgus deformity. Mateo\'s paresthesias in the ring and small fingers are in ulnar, not radial, distribution. This answer is ruled out by both anatomy and symptom localization.',
+    next_step: 'Test wrist extension and finger extension strength (radial nerve motor function) and check sensation over the first dorsal web space (radial sensory distribution). If these are intact — which they should be given the presentation — radial nerve involvement is effectively ruled out. The ring and small finger paresthesias are anatomically ulnar territory, not radial. This test is primarily confirmatory: a negative radial exam redirects full investigative focus to ulnar nerve conduction studies and cubital tunnel assessment.',
+    path_label: 'Path 5b: Neural — radial nerve palsy (ruled out)',
     terminal_safety_checks: [
       { label: 'Anatomically inconsistent with valgus mechanism', status: 'warn' },
+      { label: 'Symptom distribution does not match radial territory', status: 'warn' },
     ],
-    step_index: 29,
+    step_index: 31,
   },
 
-  // Ulnar branch B (converges)
+  // ── Branch-ulnar-b: Ulnar convergence B (valgus-stretch mechanism) ────────
   {
     id: 't13',
     parent_id: 'dp3',
     branch_id: 'branch-ulnar-b',
     type: 'thought',
-    headline: 'Valgus stretch → ulnar distribution',
+    headline: 'Valgus stretch mechanism confirms ulnar involvement',
     content:
-      'Alternative nerve branch: valgus-related stretch still points back to the ulnar distribution.',
+      'Approaching from the mechanical angle rather than the anatomical: as the carrying angle increases in cubitus valgus, the distance the ulnar nerve must travel around the medial epicondyle increases proportionally. This produces a dynamic traction neuropathy that worsens with elbow flexion — consistent with Mateo\'s report that numbness occurs during play (flexed elbow positions). The mechanism independently confirms ulnar nerve as the answer.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['term-ulnar-b'],
     diagnosis: null,
-    step_index: 30,
+    step_index: 32,
   },
   {
     id: 'term-ulnar-b',
@@ -599,8 +676,12 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     branch_id: 'branch-ulnar-b',
     type: 'citation',
     headline: 'Ulnar nerve palsy',
-    content: 'ulnar nerve palsy.',
-    source: 'Rockwood & Wilkins: Fractures in Children',
+    content:
+      'The valgus carrying-angle deformity stretches the ulnar nerve at the medial epicondyle progressively, producing tardy ulnar nerve palsy. This mechanistic reasoning path converges independently with the anatomical path.',
+    source: 'Rockwood & Wilkins: Fractures in Children, 9th ed.',
+    source_author: 'Beaty JH, Kasser JR (eds)',
+    source_chapter: 'Ch. 17 — Lateral Condyle Fractures',
+    source_pages: 'pp. 714–726',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -608,31 +689,32 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     children: [],
     diagnosis: 'Ulnar nerve palsy',
     terminal_summary:
-      'The valgus carrying-angle deformity progressively stretches the ulnar nerve at the medial epicondyle, consistently producing tardy ulnar nerve palsy across independent reasoning paths.',
-    next_step: 'Nerve conduction studies; confirm valgus deformity on elbow X-ray; orthopedic referral for osteotomy + nerve decompression if symptomatic.',
-    path_label: 'Path 5c: Ulnar — valgus stretch mechanism',
+      'This path converges on ulnar nerve palsy via the mechanical reasoning route. As valgus increases, the ulnar nerve is stretched over a longer arc at the cubital tunnel — a dynamic traction neuropathy that worsens with activity and flexion. Mateo\'s symptom onset during play is consistent with this: flexing the elbow further tensions the nerve. The mechanistic path and the anatomical path reach the same conclusion independently, strengthening confidence in the diagnosis. This is the second of three converging paths.',
+    next_step: 'Order nerve conduction studies with the elbow tested in both extension and 90° flexion. The dynamic traction hypothesis predicts that latency will worsen in flexion — if ulnar motor latency is prolonged specifically with the elbow flexed and improves in extension, this confirms the dynamic compression component of the valgus-stretch mechanism. A static, position-independent prolongation suggests fixed compression rather than dynamic traction, which changes the surgical planning. If conduction is normal in both positions, the paresthesias are likely intermittent mechanical in origin and warrant observation rather than immediate intervention.',
+    path_label: 'Path 5c: Neural — ulnar, valgus-stretch mechanism',
     terminal_safety_checks: [
       { label: 'Mechanistic consistency confirmed', status: 'pass' },
+      { label: 'Symptom timing (activity-related) consistent with dynamic traction', status: 'pass' },
     ],
-    step_index: 31,
+    step_index: 33,
   },
 
-  // Ulnar branch C (converges)
+  // ── Branch-ulnar-c: Ulnar convergence C (cross-check) ────────────────────
   {
     id: 't14',
     parent_id: 'dp3',
     branch_id: 'branch-ulnar-c',
     type: 'thought',
-    headline: 'Cross-check: classic delayed neuropathy',
+    headline: 'Cross-check: independent source confirms ulnar palsy',
     content:
-      'Cross-check branch: the classic delayed neuropathy in this setting remains ulnar, not radial.',
+      'Running an independent cross-check against a third reference to verify that tardy ulnar nerve palsy is consistently named across sources — not a single-reference conclusion. The clinical picture (valgus deformity, ulnar distribution paresthesias, grip weakness, activity-dependent symptoms) should align with the cross-checked source description of the complication.',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
     prune_reason: null,
     children: ['term-ulnar-c'],
     diagnosis: null,
-    step_index: 32,
+    step_index: 34,
   },
   {
     id: 'term-ulnar-c',
@@ -640,8 +722,12 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     branch_id: 'branch-ulnar-c',
     type: 'citation',
     headline: 'Ulnar nerve palsy',
-    content: 'ulnar nerve palsy.',
-    source: 'Campbell\'s Operative Orthopaedics',
+    content:
+      'Cross-check confirms: tardy ulnar nerve palsy secondary to progressive cubitus valgus is the textbook delayed neuropathic complication across all reviewed references. Three independent reasoning paths reach the same conclusion.',
+    source: 'Campbell\'s Operative Orthopaedics, 14th ed.',
+    source_author: 'Azar FM, Beaty JH, Canale ST (eds)',
+    source_chapter: 'Ch. 36 — Elbow Injuries in Children',
+    source_pages: 'pp. 1412–1419',
     is_decision_point: false,
     is_pruned: false,
     pruned_by: null,
@@ -649,12 +735,14 @@ export const orthopedicsTreeNodes: TreeNode[] = [
     children: [],
     diagnosis: 'Ulnar nerve palsy',
     terminal_summary:
-      'Cross-check confirms: tardy ulnar nerve palsy secondary to progressive cubitus valgus is the textbook late complication of lateral condyle fracture nonunion in pediatric patients.',
-    next_step: 'Select "tardy ulnar nerve palsy" on board exam; clinically: nerve conduction studies + elbow X-ray + orthopedic referral.',
-    path_label: 'Path 5d: Ulnar — cross-check confirmation',
+      'Cross-check from a third independent source confirms tardy ulnar nerve palsy as the documented delayed neuropathic complication of lateral condyle nonunion. All three ulnar paths — anatomical localization, valgus-stretch mechanism, and independent source cross-check — converge on the same diagnosis. The convergence itself is clinically meaningful: it reflects that the answer is not assumption-dependent but reproducible across different reasoning approaches. Mateo\'s full clinical picture (paresthesias, grip weakness, valgus, activity dependence, nonunion confirmed) is accounted for. Confidence is high.',
+    next_step: 'Three independent reasoning paths converge on ulnar nerve palsy — the investigative workup is now confirmatory rather than exploratory. Order nerve conduction studies at the cubital tunnel; if ulnar motor latency is prolonged and SNAP is reduced, the diagnosis is confirmed. Quantify the carrying angle radiographically to establish the degree of valgus deformity driving the traction. The NCS result and carrying angle together determine the intervention: mild NCS changes with early valgus may respond to conservative decompression alone; moderate-to-severe NCS changes with significant valgus typically require combined corrective osteotomy and ulnar nerve transposition. Normal NCS would be unexpected given the convergence and should prompt re-evaluation of the presentation.',
+    path_label: 'Path 5d: Neural — ulnar palsy, cross-check confirmed',
     terminal_safety_checks: [
-      { label: 'Confirmed by multiple independent sources', status: 'pass' },
+      { label: 'Confirmed across three independent references', status: 'pass' },
+      { label: 'All three converging paths reach same conclusion', status: 'pass' },
+      { label: 'Clinical findings fully accounted for', status: 'pass' },
     ],
-    step_index: 33,
+    step_index: 35,
   },
 ]

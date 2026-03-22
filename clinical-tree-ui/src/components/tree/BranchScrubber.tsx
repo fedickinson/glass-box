@@ -1,15 +1,7 @@
-/** BranchScrubber — bottom-bar navigation dots showing branch position. Visible when a branch is focused. */
-import React, { useRef } from 'react'
+/** BranchScrubber — bottom-bar branch navigation. Visible when a branch is focused with no node selected. */
+import React from 'react'
 import { PositionedNode } from '../../types/tree'
-
-const TYPE_COLORS: Record<string, string> = {
-  thought: '#3B7DD8',
-  tool: '#2D8A56',
-  citation: '#7B5EA7',
-}
-const DECISION_COLOR = '#D4950A'
-const DOT_NORMAL = 8
-const DOT_SELECTED = 12
+import { ArrowLeftIcon, ArrowRightIcon } from '../shared/Icons'
 
 interface Props {
   branchNodeIds: string[]
@@ -20,26 +12,9 @@ interface Props {
 
 export default function BranchScrubber({ branchNodeIds, nodes, selectedIndex, onScrub }: Props) {
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
-  const trackRef = useRef<HTMLDivElement>(null)
-
-  function indexFromPointer(e: React.PointerEvent | PointerEvent): number {
-    const track = trackRef.current
-    if (!track || branchNodeIds.length <= 1) return selectedIndex
-    const rect = track.getBoundingClientRect()
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    return Math.round(ratio * (branchNodeIds.length - 1))
-  }
-
-  function handlePointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    onScrub(indexFromPointer(e))
-    const target = e.currentTarget
-    target.setPointerCapture(e.pointerId)
-  }
-
-  function handlePointerMove(e: React.PointerEvent) {
-    if (e.buttons > 0) onScrub(indexFromPointer(e))
-  }
+  const currentNode = nodeMap.get(branchNodeIds[selectedIndex])
+  const canPrev = selectedIndex > 0
+  const canNext = selectedIndex < branchNodeIds.length - 1
 
   return (
     <div
@@ -55,119 +30,65 @@ export default function BranchScrubber({ branchNodeIds, nodes, selectedIndex, on
         borderTop: '1px solid rgba(0,0,0,0.07)',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         padding: '0 24px',
-        gap: 0,
+        gap: 12,
         userSelect: 'none',
       }}
     >
-      {/* Label */}
-      <span
+      {/* Prev */}
+      <button
+        onClick={() => canPrev && onScrub(selectedIndex - 1)}
+        disabled={!canPrev}
         style={{
-          fontSize: 9,
-          fontWeight: 700,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'rgba(0,0,0,0.35)',
-          marginRight: 16,
-          whiteSpace: 'nowrap',
+          width: 28, height: 28, borderRadius: 8,
+          background: canPrev ? 'rgba(26,82,168,0.07)' : 'rgba(0,0,0,0.03)',
+          border: canPrev ? '1px solid rgba(26,82,168,0.18)' : '1px solid rgba(0,0,0,0.07)',
+          color: canPrev ? '#1A52A8' : 'rgba(0,0,0,0.2)',
+          cursor: canPrev ? 'pointer' : 'default',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 120ms ease-out',
         }}
       >
-        Branch path
-      </span>
+        <ArrowLeftIcon size={10} color={canPrev ? '#1A52A8' : 'rgba(0,0,0,0.2)'} />
+      </button>
 
-      {/* Track */}
-      <div
-        ref={trackRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          cursor: 'pointer',
-          position: 'relative',
-          height: 28,
-        }}
-      >
-        {/* Connector line */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: '50%',
-            height: 1.5,
-            background: 'rgba(0,0,0,0.1)',
-            transform: 'translateY(-50%)',
-            borderRadius: 1,
-          }}
-        />
-
-        {/* Progress fill */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            width:
-              branchNodeIds.length > 1
-                ? `${(selectedIndex / (branchNodeIds.length - 1)) * 100}%`
-                : '100%',
-            top: '50%',
-            height: 1.5,
-            background: 'rgba(59,125,216,0.45)',
-            transform: 'translateY(-50%)',
-            borderRadius: 1,
-            transition: 'width 150ms ease-out',
-          }}
-        />
-
-        {/* Dots */}
-        {branchNodeIds.map((id, i) => {
-          const node = nodeMap.get(id)
-          const isSelected = i === selectedIndex
-          const color = node?.is_decision_point
-            ? DECISION_COLOR
-            : TYPE_COLORS[node?.type ?? 'thought'] ?? '#888'
-          const size = isSelected ? DOT_SELECTED : DOT_NORMAL
-          const left =
-            branchNodeIds.length > 1 ? `${(i / (branchNodeIds.length - 1)) * 100}%` : '50%'
-
-          return (
-            <div
-              key={id}
-              onClick={e => { e.stopPropagation(); onScrub(i) }}
-              style={{
-                position: 'absolute',
-                left,
-                transform: 'translateX(-50%)',
-                width: size,
-                height: size,
-                borderRadius: '50%',
-                background: isSelected ? color : `${color}88`,
-                border: isSelected ? `2px solid ${color}` : '1.5px solid rgba(255,255,255,0.9)',
-                boxShadow: isSelected ? `0 0 0 3px ${color}22` : 'none',
-                transition: 'all 150ms ease-out',
-                zIndex: isSelected ? 2 : 1,
-              }}
-              title={node?.headline ?? id}
-            />
-          )
-        })}
+      {/* Counter + current headline */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+          color: 'rgba(0,0,0,0.35)', whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {selectedIndex + 1} / {branchNodeIds.length}
+        </span>
+        {currentNode && (
+          <span style={{
+            fontSize: 10.5, color: 'rgba(0,0,0,0.5)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            maxWidth: 260,
+          }}>
+            {currentNode.headline}
+          </span>
+        )}
       </div>
 
-      {/* Position counter */}
-      <span
+      {/* Next */}
+      <button
+        onClick={() => canNext && onScrub(selectedIndex + 1)}
+        disabled={!canNext}
         style={{
-          fontSize: 10,
-          fontWeight: 600,
-          color: 'rgba(0,0,0,0.35)',
-          marginLeft: 16,
-          whiteSpace: 'nowrap',
-          fontVariantNumeric: 'tabular-nums',
+          width: 28, height: 28, borderRadius: 8,
+          background: canNext ? 'rgba(26,82,168,0.07)' : 'rgba(0,0,0,0.03)',
+          border: canNext ? '1px solid rgba(26,82,168,0.18)' : '1px solid rgba(0,0,0,0.07)',
+          color: canNext ? '#1A52A8' : 'rgba(0,0,0,0.2)',
+          cursor: canNext ? 'pointer' : 'default',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 120ms ease-out',
         }}
       >
-        {selectedIndex + 1} / {branchNodeIds.length}
-      </span>
+        <ArrowRightIcon size={10} color={canNext ? '#1A52A8' : 'rgba(0,0,0,0.2)'} />
+      </button>
     </div>
   )
 }

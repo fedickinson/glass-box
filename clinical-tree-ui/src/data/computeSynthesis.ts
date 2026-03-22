@@ -171,20 +171,44 @@ export function computeSynthesis(
   for (const [diagnosis, diagBranchIds] of diagnosisGroups) {
     const groupBranches = branches.filter(b => diagBranchIds.includes(b.branchId))
     const isPrimary = diagnosis === primaryDiagnosis
-    const tag: 'PRIMARY' | 'DIVERGENT' | 'UNLIKELY' =
+    // A group is CONTRADICTED if its terminal node explicitly carries a contradiction explanation
+    const contradictedNode = groupBranches
+      .map(b => { const ns = b.nodeSummaries.find(s => s.isDiagnosis); return ns ? nodeMap.get(ns.nodeId) : undefined })
+      .find(n => n?.terminal_contradiction)
+    const whyNotSupported = contradictedNode?.terminal_contradiction
+
+    // A group is UNLIKELY if its terminal node has 'flag'-status safety checks
+    const hasFlagChecks = groupBranches.some(b => {
+      const termId = b.nodeSummaries.find(ns => ns.isDiagnosis)?.nodeId
+      const termNode = termId ? nodes.find(n => n.id === termId) : undefined
+      return termNode?.terminal_safety_checks?.some(c => c.status === 'flag')
+    })
+
+    const tag: 'PRIMARY' | 'DIVERGENT' | 'UNLIKELY' | 'CONTRADICTED' =
       isPrimary ? 'PRIMARY' :
-      diagBranchIds.length === 1 ? 'UNLIKELY' :
+      whyNotSupported ? 'CONTRADICTED' :
+      hasFlagChecks ? 'UNLIKELY' :
       'DIVERGENT'
+
+    // Helper: get terminal node for the first branch in this group
+    const firstBranch = groupBranches[0]
+    const terminalNodeId = firstBranch?.nodeSummaries.find(ns => ns.isDiagnosis)?.nodeId
+    const terminalNode = terminalNodeId ? nodeMap.get(terminalNodeId) : undefined
 
     let rationale: string
     if (isPrimary && diagBranchIds.length > 1) {
-      rationale = `${diagBranchIds.length} of ${totalActive} independent paths converge on this diagnosis, cross-validating through distinct methodologies.`
-    } else if (isPrimary) {
-      rationale = groupBranches[0]?.narrativeSummary.slice(0, 160) ?? `Primary reasoning path concludes: ${diagnosis}.`
+      // Multi-path convergence: lead with convergence signal, then terminal_summary for clinical context
+      const summary = terminalNode?.terminal_summary ?? terminalNode?.content ?? ''
+      const convergenceLine = `${diagBranchIds.length} of ${totalActive} independent paths converge on this diagnosis.`
+      rationale = summary ? `${convergenceLine} ${summary}` : convergenceLine
     } else {
-      const b = groupBranches[0]
-      const snippet = b?.narrativeSummary.slice(0, 150) ?? ''
-      rationale = snippet ? (snippet.length < (b?.narrativeSummary.length ?? 0) ? snippet + '…' : snippet) : `Alternative hypothesis explored: ${diagnosis}.`
+      // Single path (primary or divergent): terminal_summary is the richest pre-written rationale.
+      // Fall back to content, then narrative summary.
+      rationale =
+        terminalNode?.terminal_summary ??
+        terminalNode?.content ??
+        firstBranch?.narrativeSummary.slice(0, 160) ??
+        `${diagnosis}.`
     }
 
     // ── Evidence FOR: citations first, then tool results, from all branches in group ──
@@ -260,6 +284,16 @@ export function computeSynthesis(
       .find(n => n?.next_step)
     const nextStep = nextStepNode?.next_step
 
+    // safetyFlags: 'flag'-status entries from any terminal node in this group
+    const safetyFlagChecks: Array<{ label: string }> = []
+    groupBranches.forEach(b => {
+      const termId = b.nodeSummaries.find(ns => ns.isDiagnosis)?.nodeId
+      const termNode = termId ? nodes.find(n => n.id === termId) : undefined
+      termNode?.terminal_safety_checks
+        ?.filter(c => c.status === 'flag')
+        .forEach(c => safetyFlagChecks.push({ label: c.label }))
+    })
+
     hypothesisGroups.push({
       diagnosis,
       tag,
@@ -270,14 +304,18 @@ export function computeSynthesis(
       branches: groupBranches,
       evidenceFor,
       evidenceAgainst,
-      nextStep,
+      nextStep: tag === 'CONTRADICTED' ? undefined : nextStep,
+      whyNotSupported,
+      safetyFlags: safetyFlagChecks.length > 0 ? safetyFlagChecks : undefined,
     })
   }
 
-  // Sort: primary first, then by path count descending
+  // Sort: primary first, contradicted last, then by path count descending
   hypothesisGroups.sort((a, b) => {
     if (a.tag === 'PRIMARY') return -1
     if (b.tag === 'PRIMARY') return 1
+    if (a.tag === 'CONTRADICTED' && b.tag !== 'CONTRADICTED') return 1
+    if (b.tag === 'CONTRADICTED' && a.tag !== 'CONTRADICTED') return -1
     return b.pathCount - a.pathCount
   })
 
@@ -362,10 +400,17 @@ export function computeSynthesis(
     }
   })
 
+  // flaggedPaths: active branches where terminal node has any 'flag'-status safety check
+  const flaggedPaths = activeBranchIds.filter(branchId => {
+    const terminal = getTerminalNode(branchId)
+    return terminal?.terminal_safety_checks?.some(c => c.status === 'flag') ?? false
+  }).length
+
   // passedPaths: active (not shield-terminated) — excludes doctor-pruned per spec
   const safetySummary: SafetySummary = {
     passedPaths: activeBranchIds.length,
     totalPaths: activeBranchIds.length + shieldPrunedIds.length,
+    flaggedPaths,
     passedChecks: passedChecks.slice(0, 6),
     violations,
   }
