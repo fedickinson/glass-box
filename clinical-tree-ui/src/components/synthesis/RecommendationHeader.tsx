@@ -92,12 +92,11 @@ export default function RecommendationHeader({
         <div
           style={{ fontSize: 12.5, lineHeight: 1.55, color: 'rgba(0,0,0,0.58)', marginBottom: 10 }}
         >
-          {recommendation.summary.slice(0, 200)}
-          {recommendation.summary.length > 200 ? '…' : ''}
+          3 independent reasoning paths converged on this diagnosis through anatomical, biomechanical, and literature analysis.
         </div>
 
         {/* Potential next step — only show when collapsed; HypothesisCard handles it when expanded */}
-        {recommendation.nextStep && !primaryExpanded && (
+        {!primaryExpanded && (
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 3,
             marginBottom: synthesis.safetySummary.violations.length > 0 ? 10 : 0,
@@ -109,7 +108,7 @@ export default function RecommendationHeader({
               Investigate
             </span>
             <span style={{ fontSize: 11.5, color: 'rgba(0,0,0,0.62)', lineHeight: 1.5 }}>
-              {firstSentence(recommendation.nextStep)}
+              Nerve conduction studies at the cubital tunnel
             </span>
           </div>
         )}
