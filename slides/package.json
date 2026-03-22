@@ -1,0 +1,19 @@
+{
+  "scripts": {
+    "start": "NO_UPDATE_NOTIFIER=1 p5 serve sketch.js --open",
+    "serve": "NO_UPDATE_NOTIFIER=1 p5 serve sketch.js",
+    "serve:slide2": "NO_UPDATE_NOTIFIER=1 p5 serve sketch-slide-2.js",
+    "serve:slide3": "NO_UPDATE_NOTIFIER=1 p5 serve sketch-slide-3.js",
+    "export:video": "node export-video.js",
+    "export:video:slide2": "node export-video.js sketch-slide-2.js sketch-slide-2.webm",
+    "export:video:slide3": "node export-video.js sketch-slide-3.js sketch-slide-3.webm"
+  },
+  "dependencies": {
+    "p5": "^2.2.3",
+    "p5-server": "^0.9.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0"
+  }
+}

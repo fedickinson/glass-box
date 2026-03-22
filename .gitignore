@@ -6,3 +6,4 @@ __pycache__/
 
 ./clinical-tree-ui/node_modules/
 .DS_Store
+**/node_modules/

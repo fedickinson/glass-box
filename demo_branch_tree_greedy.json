@@ -1,0 +1,62 @@
+[
+  {
+    "id": "root",
+    "parent_id": null,
+    "call-type": "thought",
+    "content": "In pediatric patients, which of the following complications has been documented to occur in association with lateral condyle fracture nonunion?"
+  },
+  {
+    "id": "t0",
+    "parent_id": "root",
+    "call-type": "thought",
+    "content": "Recall the complication should be a delayed consequence, not an acute injury finding."
+  },
+  {
+    "id": "tool0",
+    "parent_id": "t0",
+    "call-type": "tool",
+    "content": "Search orthopedic references for documented complications of lateral condyle fracture nonunion."
+  },
+  {
+    "id": "ref0",
+    "parent_id": "tool0",
+    "call-type": "citation",
+    "content": "Reference summary: lateral condyle nonunion is associated with progressive cubitus valgus and possible tardy ulnar nerve palsy."
+  },
+  {
+    "id": "t1",
+    "parent_id": "ref0",
+    "call-type": "thought",
+    "content": "Stay focused on long-term deformity, instability, and nerve effects."
+  },
+  {
+    "id": "t2",
+    "parent_id": "t1",
+    "call-type": "thought",
+    "content": "Eliminate obvious distractors before the first real branch."
+  },
+  {
+    "id": 0,
+    "parent_id": "t2",
+    "call-type": "thought",
+    "content": "Branch: compare deformity, nerve-symptom, and instability explanations."
+  },
+  {
+    "id": "t5",
+    "parent_id": 0,
+    "call-type": "thought",
+    "content": "Nerve-symptom path: check whether delayed neuropathy is actually the main complication."
+  },
+  {
+    "id": "t6",
+    "parent_id": "t5",
+    "call-type": "thought",
+    "content": "This path stays plausible, but it feels weaker than the deformity path."
+  },
+  {
+    "id": 2,
+    "parent_id": "t6",
+    "call-type": "citation",
+    "content": "delayed nerve symptoms."
+  }
+]
