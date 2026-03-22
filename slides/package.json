@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "start": "NO_UPDATE_NOTIFIER=1 p5 serve sketch.js --open",
-    "serve": "NO_UPDATE_NOTIFIER=1 p5 serve sketch.js",
+    "start": "NO_UPDATE_NOTIFIER=1 p5 serve sketch-slide-0.js --open",
+    "serve": "NO_UPDATE_NOTIFIER=1 p5 serve sketch-slide-0.js",
     "serve:slide2": "NO_UPDATE_NOTIFIER=1 p5 serve sketch-slide-2.js",
     "serve:slide3": "NO_UPDATE_NOTIFIER=1 p5 serve sketch-slide-3.js",
     "export:video": "node export-video.js",

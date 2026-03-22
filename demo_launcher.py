@@ -162,7 +162,7 @@ def stop_process(name: str, process: subprocess.Popen[str]) -> None:
 def build_urls(slides_port: int, ui_port: int) -> tuple[str, str]:
     handoff_url = f"http://{UI_HOST}:{ui_port}/orthopedics/reasoning/fast"
     slides_query = urllib.parse.urlencode({"handoff": handoff_url})
-    deck_url = f"http://{SLIDES_HOST}:{slides_port}/sketch.js?{slides_query}"
+    deck_url = f"http://{SLIDES_HOST}:{slides_port}/sketch-slide-0.js?{slides_query}"
     return deck_url, handoff_url
 
 
@@ -200,7 +200,7 @@ def main() -> int:
 
         wait_for_http_ready(
             "slides",
-            f"http://127.0.0.1:{args.slides_port}/sketch.js",
+            f"http://127.0.0.1:{args.slides_port}/sketch-slide-0.js",
             slides_process,
         )
         wait_for_http_ready(
