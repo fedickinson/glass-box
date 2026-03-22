@@ -4,6 +4,19 @@ import App from './App'
 import OrthoApp, { OrthoReasoningApp } from './OrthoApp'
 import './styles/tokens.css'
 import './index.css'
+import faviconUrl from './assets/logo-transparent.png'
+
+function setFavicon(href: string) {
+  let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.href = href
+}
+
+setFavicon(faviconUrl)
 
 const path = window.location.pathname
 
