@@ -2,6 +2,8 @@
 
 **Live demo:** [glass-box-seven.vercel.app/orthopedics/reasoning/fast](https://glass-box-seven.vercel.app/orthopedics/reasoning/fast)
 
+<video src="ClinicalTrace__The_Auditable_AI.mp4" autoplay loop muted playsinline width="100%"></video>
+
 ---
 
 Clinical AI reasoning made transparent. Glassbox runs multi-path chain-of-thought reasoning over a medical scenario, explores counterfactual diagnostic branches in parallel, and visualizes the full reasoning tree so a doctor can see — and interact with — exactly how the AI thinks.
