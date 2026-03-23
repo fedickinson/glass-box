@@ -11,6 +11,12 @@ Built at **Empire Hacks 2026** (Cornell Tech Ã— Columbia AI Hackathon, March 20â
 
 ---
 
+## Demo
+
+https://github.com/user-attachments/assets/a65521e2-41e6-4e0c-822f-bc1a58089cf5
+
+---
+
 ## What it does
 
 Standard AI diagnostic tools give you one answer. Glassbox gives you the full reasoning tree.
