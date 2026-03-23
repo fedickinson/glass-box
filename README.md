@@ -1,5 +1,5 @@
 <table><tr>
-<td width="140"><video src="https://github.com/user-attachments/assets/f634784b-4f8c-4205-9eb9-b936580a6a3e" width="130" autoplay loop muted playsinline></video></td>
+<td width="140"><img src="logo.gif" width="130" alt="Glassbox logo"></td>
 <td><h1>Glassbox — Empire Hacks 2026</h1><p><strong>Live demo:</strong> <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast">glass-box-seven.vercel.app/orthopedics/reasoning/fast</a></p></td>
 </tr></table>
 
