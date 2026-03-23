@@ -9,7 +9,7 @@ Clinical AI reasoning made transparent. Glassbox runs multi-path chain-of-though
 
 🏆 **Winner** of **[Empire Hacks 2026](https://cornell-tech-hackathon.vercel.app/#faq)** (Cornell Tech × Columbia AI Hackathon, March 20–22).
 
-**Franklin Dickinson** · **Cole Donat** · **Alex Seo**
+[Franklin Dickinson](https://www.linkedin.com/in/franklindickinson/) (fd274@cornell.edu) · [Cole Donat](https://www.linkedin.com/in/cole-donat/) (nd473@cornell.edu) · [Alex Seo](https://www.linkedin.com/in/seoa/) (as4462@cornell.edu)
 
 ---
 
