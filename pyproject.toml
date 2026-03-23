@@ -1,5 +1,5 @@
 [project]
-name = "rosy-rat-boys"
+name = "glass-box"
 version = "0.1.0"
 description = "Multibeam search with entropy branching"
 requires-python = ">=3.10"
