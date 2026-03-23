@@ -90,3 +90,7 @@ Open [http://localhost:5173](http://localhost:5173).
 ## Team
 
 Built in 48 hours at Empire Hacks 2026.
+
+- **Franklin Dickinson** — fd274@cornell.edu · [LinkedIn](https://www.linkedin.com/in/franklindickinson/)
+- **Cole Donat** — nd473@cornell.edu · [LinkedIn](https://www.linkedin.com/in/cole-donat/)
+- **Alex Seo** — as4462@cornell.edu · [LinkedIn](https://www.linkedin.com/in/seoa/)
