@@ -2,7 +2,7 @@
 
 **Live demo:** [glass-box-seven.vercel.app/orthopedics/reasoning/fast](https://glass-box-seven.vercel.app/orthopedics/reasoning/fast)
 
-<video src="ClinicalTrace__The_Auditable_AI.mp4" autoplay loop muted playsinline width="100%"></video>
+<video src="https://github.com/user-attachments/assets/f634784b-4f8c-4205-9eb9-b936580a6a3e" autoplay loop muted playsinline width="100%"></video>
 
 ---
 
