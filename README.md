@@ -7,7 +7,7 @@
 
 Clinical AI reasoning made transparent. Glassbox runs multi-path chain-of-thought reasoning over a medical scenario, explores counterfactual diagnostic branches in parallel, and visualizes the full reasoning tree so a doctor can see — and interact with — exactly how the AI thinks.
 
-Built at **[Empire Hacks 2026](https://cornell-tech-hackathon.vercel.app/#faq)** (Cornell Tech × Columbia AI Hackathon, March 20–22).
+🏆 **Winner** of **[Empire Hacks 2026](https://cornell-tech-hackathon.vercel.app/#faq)** (Cornell Tech × Columbia AI Hackathon, March 20–22).
 
 ---
 
