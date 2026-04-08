@@ -1,6 +1,5 @@
 # Videos (hosted on GitHub releases)
 *.mp4
-*.gif
 
 # Python backend
 *.py
