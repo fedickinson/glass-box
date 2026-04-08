@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glassbox — Clinical AI Reasoning Visualization</title>
+  <link rel="icon" type="image/gif" href="logo.gif">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Design Tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg:          #07090f;
+      --bg-surface:  #0c1018;
+      --bg-card:     #0e1522;
+      --bg-card-2:   #111a2a;
+      --border:      #1e2d45;
+      --border-sub:  #111e30;
+
+      --accent:      #4b7fd6;
+      --accent-dim:  rgba(75, 127, 214, 0.18);
+      --accent-glow: rgba(75, 127, 214, 0.12);
+      --teal:        #2dd4bf;
+      --teal-dim:    rgba(45, 212, 191, 0.12);
+
+      --gold:        #f0a500;
+      --gold-dim:    rgba(240, 165, 0, 0.14);
+      --gold-border: rgba(240, 165, 0, 0.35);
+
+      --text-1:  #e2e8f0;
+      --text-2:  #8a9bc0;
+      --text-3:  #3d5070;
+
+      /* Node colors — match the app exactly */
+      --n-thought:    #4b7fd6;
+      --n-thought-bg: rgba(75, 127, 214, 0.10);
+      --n-tool:       #10b981;
+      --n-tool-bg:    rgba(16, 185, 129, 0.10);
+      --n-decision:   #f0a500;
+      --n-decision-bg:rgba(240, 165, 0, 0.10);
+      --n-shield:     #ef4444;
+
+      --conn-primary: #4b7fd6;
+      --conn-branch:  #1e2d45;
+
+      --font:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono:      'JetBrains Mono', 'Fira Code', monospace;
+      --r:         6px;
+      --r-sm:      4px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; }
+
+    /* ─── Scrollbar ──────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ─── Nav ────────────────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 56px;
+      background: rgba(7, 9, 15, 0.85);
+      border-bottom: 1px solid var(--border-sub);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: -0.01em;
+    }
+
+    .nav-brand img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      padding: 6px 14px;
+      border-radius: var(--r-sm);
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .nav-link:hover { color: var(--text-1); background: rgba(255,255,255,0.05); }
+
+    .nav-link.primary {
+      color: var(--text-1);
+      background: var(--accent);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .nav-link.primary:hover { background: #5a8ee0; }
+
+    /* ─── Section scaffold ───────────────────────────────────────────── */
+    section {
+      position: relative;
+      padding: 100px 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .section-heading {
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+      color: var(--text-1);
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-2);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+
+    /* ─── Hero ────────────────────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 80px;
+      padding-bottom: 60px;
+      max-width: none;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    /* Subtle dot grid background for hero */
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at 1px 1px, rgba(30, 45, 69, 0.7) 1px, transparent 0);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    /* Ambient background video */
+    .hero-bg-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      z-index: 0;
+    }
+
+    /* Overlay: left side darker for text legibility,
+       right side lighter so video shows through,
+       bottom fully dark to hide watermark + blend to next section */
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background:
+        linear-gradient(to bottom,
+          rgba(7,9,15,0.55) 0%,
+          rgba(7,9,15,0.30) 50%,
+          rgba(7,9,15,0.80) 85%,
+          rgba(7,9,15,1.00) 100%
+        ),
+        linear-gradient(to right,
+          rgba(7,9,15,0.90) 0%,
+          rgba(7,9,15,0.65) 38%,
+          rgba(7,9,15,0.20) 75%,
+          rgba(7,9,15,0.30) 100%
+        );
+    }
+
+    .hero-left { position: relative; z-index: 2; max-width: 580px; }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 20px;
+    }
+
+    .hero-eyebrow .dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--text-3);
+    }
+
+    .win-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--gold-dim);
+      border: 1px solid var(--gold-border);
+      border-radius: 100px;
+      padding: 6px 14px 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 28px;
+      letter-spacing: -0.01em;
+    }
+
+    .win-badge svg { flex-shrink: 0; }
+
+    .hero-title-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .hero-logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .hero-title {
+      font-size: clamp(48px, 7vw, 80px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.0;
+      color: var(--text-1);
+      margin-bottom: 0;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--teal) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-tagline {
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--text-2);
+      margin-bottom: 32px;
+      max-width: 440px;
+      line-height: 1.65;
+    }
+
+    .hero-tagline strong {
+      color: var(--text-1);
+      font-weight: 500;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 20px;
+      border-radius: var(--r);
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+
+    .cta-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .cta-primary:hover { background: #5a8ee0; transform: translateY(-1px); }
+
+    .cta-secondary {
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border);
+    }
+
+    .cta-secondary:hover { color: var(--text-1); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.03); }
+
+    /* ─── Divider ────────────────────────────────────────────────────── */
+    .divider {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .divider hr {
+      border: none;
+      border-top: 1px solid var(--border-sub);
+    }
+
+    /* ─── Problem section ────────────────────────────────────────────── */
+    #problem { padding-top: 80px; }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 48px;
+    }
+
+    .problem-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 28px;
+      transition: border-color 0.2s;
+    }
+
+    .problem-card:hover { border-color: rgba(75, 127, 214, 0.4); }
+
+    .problem-icon {
+      width: 36px; height: 36px;
+      border-radius: var(--r-sm);
+      background: var(--n-shield);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      opacity: 0.85;
+    }
+
+    .problem-num {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+    }
+
+    .problem-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-1);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .problem-card p {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.7;
+    }
+
+    /* ─── How it works ───────────────────────────────────────────────── */
+    #how {
+      background: var(--bg-surface);
+      max-width: none;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    #how .inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin-top: 56px;
+      position: relative;
+    }
+
+    /* connecting line */
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 24px;
+      left: calc(100% / 6);
+      right: calc(100% / 6);
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border) 10%, var(--border) 90%, transparent);
+    }
+
+    .step {
+      padding: 0 32px;
+      position: relative;
+    }
+
+    .step:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      right: -10px;
+      top: 14px;
+      color: var(--text-3);
+      font-size: 14px;
+      z-index: 2;
+    }
+
+    .step-num {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .step h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-1);
+      margin-bottom: 12px;
+      letter-spacing: -0.015em;
+    }
+
+    .step p {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.75;
+    }
+
+    .step-tag {
+      display: inline-block;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      border: 1px solid;
+      letter-spacing: 0.05em;
+    }
+
+    .step-tag.blue  { color: var(--n-thought); border-color: rgba(75, 127, 214, 0.4); background: var(--n-thought-bg); }
+    .step-tag.amber { color: var(--n-decision); border-color: rgba(240, 165, 0, 0.4); background: var(--n-decision-bg); }
+    .step-tag.green { color: var(--n-tool); border-color: rgba(16, 185, 129, 0.4); background: var(--n-tool-bg); }
+
+    /* ─── Team section ───────────────────────────────────────────────── */
+    #team { padding-top: 80px; padding-bottom: 80px; }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 48px;
+    }
+
+    .team-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .team-card:hover {
+      border-color: rgba(75, 127, 214, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .team-avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--bg-card-2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .team-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: -0.01em;
+    }
+
+    .team-role {
+      font-size: 12px;
+      color: var(--text-3);
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+    }
+
+    .team-links {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .team-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-3);
+      padding: 4px 10px;
+      border: 1px solid var(--border-sub);
+      border-radius: 100px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .team-link:hover { color: var(--accent); border-color: rgba(75, 127, 214, 0.4); }
+
+    /* ─── Stack section ──────────────────────────────────────────────── */
+    #stack {
+      border-top: 1px solid var(--border-sub);
+      padding-top: 64px;
+      padding-bottom: 80px;
+    }
+
+    .stack-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 36px;
+    }
+
+    .stack-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      letter-spacing: -0.01em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .stack-chip:hover { border-color: rgba(75, 127, 214, 0.4); color: var(--text-1); }
+
+    .chip-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+
+    /* ─── Footer ─────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border-sub);
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-3);
+    }
+
+    .footer-brand img { width: 20px; height: 20px; object-fit: contain; }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    .footer-links a {
+      font-size: 13px;
+      color: var(--text-3);
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: var(--text-2); }
+
+    /* ─── Cornell badge ──────────────────────────────────────────────── */
+    .cornell-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-3);
+    }
+
+    .cornell-badge .cornell-mark {
+      background: #B31B1B;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── Utility ────────────────────────────────────────────────────── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .problem-grid, .team-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      .steps::before { display: none; }
+      .step:not(:last-child)::after { display: none; }
+      .step { padding: 0 0 32px; }
+      nav { padding: 0 20px; }
+      section { padding: 60px 20px; }
+      footer { padding: 24px 20px; flex-direction: column; gap: 16px; text-align: center; }
+    }
+
+    @media (max-width: 600px) {
+      .hero-title { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Nav ──────────────────────────────────────────────────────────── -->
+<nav>
+  <a href="#" class="nav-brand">
+    <img src="glassbox-logo.svg" alt="Glassbox logo">
+    Glassbox
+  </a>
+  <div class="nav-links">
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#team" class="nav-link">Team</a>
+    <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast" target="_blank" class="nav-link">Live demo ↗</a>
+    <a href="https://github.com/fedickinson/glass-box" target="_blank" class="nav-link primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+      </svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- ─── Hero ──────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <video class="hero-bg-video" autoplay muted loop playsinline>
+    <source src="ClinicalTrace__The_Auditable_AI.mp4" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="hero-inner">
+    <!-- Left: copy -->
+    <div class="hero-left">
+      <div class="hero-eyebrow">
+        <span class="cornell-badge">
+          <span class="cornell-mark">CORNELL TECH</span>
+          × Columbia AI Hackathon
+        </span>
+        <span class="dot"></span>
+        <span>March 2026</span>
+      </div>
+
+      <div class="win-badge">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#f0a500" stroke="#f0a500" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        1st Place — Empire Hacks 2026
+      </div>
+
+      <div class="hero-title-row">
+        <img src="glassbox-logo.svg" alt="Glassbox logo" class="hero-logo">
+        <h1 class="hero-title"><span>Glassbox</span></h1>
+      </div>
+
+      <p class="hero-tagline">
+        Clinical AI reasoning made visible. The AI forks at uncertainty.
+        <strong>The doctor sees every path it considered — and can change any step.</strong>
+      </p>
+
+      <div class="hero-ctas">
+        <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast" target="_blank" class="cta cta-primary">
+          Live demo
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M7 17L17 7M17 7H7M17 7V17"/>
+          </svg>
+        </a>
+        <a href="https://github.com/fedickinson/glass-box" target="_blank" class="cta cta-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+          </svg>
+          View source
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── Problem ───────────────────────────────────────────────────────── -->
+<div class="divider"><hr></div>
+
+<section id="problem">
+  <div class="section-label">The problem</div>
+  <h2 class="section-heading">Clinical AI is a black box</h2>
+  <p class="section-sub">Current AI diagnostic tools return a single answer. Doctors can't see what alternatives were considered, whether the reasoning is sound, or which step to push back on.</p>
+
+  <div class="problem-grid">
+    <div class="problem-card fade-in">
+      <div class="problem-num">01 / VISIBILITY</div>
+      <h3>One answer, no trace</h3>
+      <p>Standard chain-of-thought gives you a diagnosis. It doesn't show you the differential it discarded, the evidence it weighted, or where it was genuinely uncertain.</p>
+    </div>
+    <div class="problem-card fade-in" style="transition-delay: 0.1s">
+      <div class="problem-num">02 / AGENCY</div>
+      <h3>No alternative paths</h3>
+      <p>A doctor who suspects a different hypothesis has nowhere to look. The model committed to one branch. Everything else is gone.</p>
+    </div>
+    <div class="problem-card fade-in" style="transition-delay: 0.2s">
+      <div class="problem-num">03 / CONTROL</div>
+      <h3>No step-level override</h3>
+      <p>Doctors can reject an output. They can't modify a specific reasoning step — the one where the AI made an assumption they disagree with.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How it works ──────────────────────────────────────────────────── -->
+<section id="how" style="padding-top: 0; padding-bottom: 0;">
+  <div class="inner" style="padding-top: 80px; padding-bottom: 80px;">
+    <div class="section-label">How it works</div>
+    <h2 class="section-heading">Transparency built into the reasoning</h2>
+    <p class="section-sub">Glassbox doesn't explain AI decisions after the fact. The tree structure is the reasoning — live, navigable, and interactive.</p>
+
+    <div class="steps">
+      <div class="step fade-in">
+        <div class="step-num">01</div>
+        <h3>Entropy branching</h3>
+        <p>When the differential is genuinely ambiguous, the backend measures entropy over the model's output distribution and forks into parallel reasoning beams rather than committing to one path.</p>
+        <span class="step-tag amber">entropy_branching.py</span>
+      </div>
+      <div class="step fade-in" style="transition-delay:0.12s">
+        <div class="step-num">02</div>
+        <h3>Interactive reasoning tree</h3>
+        <p>The tree grows live and auto-pauses at decision points. Click a branch to isolate it — everything else fades to 20% opacity. Arrow keys and a scrubber let you walk each step with an audience.</p>
+        <span class="step-tag blue">react + d3-hierarchy</span>
+      </div>
+      <div class="step fade-in" style="transition-delay:0.24s">
+        <div class="step-num">03</div>
+        <h3>Live synthesis update</h3>
+        <p>The right panel translates the tree into a structured clinical narrative. Prune a branch and the synthesis recomputes instantly — confidence, caveats, and recommendations update live.</p>
+        <span class="step-tag green">doctor-in-the-loop</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── Team ──────────────────────────────────────────────────────────── -->
+<div class="divider" style="max-width:1200px; margin:0 auto; padding:0 40px;"><hr></div>
+
+<section id="team">
+  <div class="section-label">Team</div>
+  <h2 class="section-heading">Built in 48 hours</h2>
+  <p class="section-sub">Empire Hacks 2026 — Cornell Tech × Columbia AI Hackathon, March 20–22.</p>
+
+  <div class="team-grid">
+    <div class="team-card fade-in">
+      <div class="team-avatar">FD</div>
+      <div class="team-name">Franklin Dickinson</div>
+      <div class="team-role">Frontend · Concept · Cornell Tech</div>
+      <div class="team-links">
+        <a href="https://www.linkedin.com/in/franklindickinson/" target="_blank" class="team-link">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
+          LinkedIn
+        </a>
+      </div>
+    </div>
+    <div class="team-card fade-in" style="transition-delay:0.1s">
+      <div class="team-avatar">CD</div>
+      <div class="team-name">Cole Donat</div>
+      <div class="team-role">Backend · Reasoning Engine</div>
+      <div class="team-links">
+        <a href="https://www.linkedin.com/in/cole-donat/" target="_blank" class="team-link">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
+          LinkedIn
+        </a>
+      </div>
+    </div>
+    <div class="team-card fade-in" style="transition-delay:0.2s">
+      <div class="team-avatar">AS</div>
+      <div class="team-name">Alex Seo</div>
+      <div class="team-role">Backend · API Integration</div>
+      <div class="team-links">
+        <a href="https://www.linkedin.com/in/seoa/" target="_blank" class="team-link">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
+          LinkedIn
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Stack ──────────────────────────────────────────────────────────── -->
+<section id="stack">
+  <div class="section-label">Built with</div>
+
+  <div class="stack-grid">
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#61dafb;"></div>
+      React 18
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#3178c6;"></div>
+      TypeScript
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#38bdf8;"></div>
+      Tailwind CSS
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#f0a500;"></div>
+      Framer Motion
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#f97316;"></div>
+      d3-hierarchy
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#646cff;"></div>
+      Vite
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#3776ab;"></div>
+      Python
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#10b981;"></div>
+      DeepSeek
+    </div>
+    <div class="stack-chip">
+      <div class="chip-dot" style="background:#000;"></div>
+      Vercel
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-brand">
+    <img src="glassbox-logo.svg" alt="Glassbox logo">
+    Glassbox — Empire Hacks 2026
+  </div>
+  <div class="footer-links">
+    <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast" target="_blank">Live demo</a>
+    <a href="https://github.com/fedickinson/glass-box" target="_blank">GitHub</a>
+    <a href="https://cornell-tech-hackathon.vercel.app/" target="_blank">Empire Hacks</a>
+  </div>
+</footer>
+
+<!-- ─── JS ────────────────────────────────────────────────────────────── -->
+<script>
+  // ── Scroll fade-in ─────────────────────────────────────────────────
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
