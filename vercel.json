@@ -1,6 +1,9 @@
 {
-  "cleanUrls": true,
   "buildCommand": "",
   "outputDirectory": ".",
-  "installCommand": ""
+  "installCommand": "",
+  "routes": [
+    { "src": "/portfolio", "dest": "/portfolio.html" },
+    { "src": "/", "dest": "/portfolio.html" }
+  ]
 }
