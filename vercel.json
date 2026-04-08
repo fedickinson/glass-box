@@ -1,7 +1,10 @@
 {
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "installCommand": "",
+  "version": 2,
+  "builds": [
+    { "src": "portfolio.html", "use": "@vercel/static" },
+    { "src": "glassbox-logo.svg", "use": "@vercel/static" },
+    { "src": "logo.gif", "use": "@vercel/static" }
+  ],
   "routes": [
     { "src": "/portfolio", "dest": "/portfolio.html" },
     { "src": "/", "dest": "/portfolio.html" }
