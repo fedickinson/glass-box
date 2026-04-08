@@ -1,10 +1,6 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "portfolio.html", "use": "@vercel/static" },
-    { "src": "glassbox-logo.svg", "use": "@vercel/static" },
-    { "src": "logo.gif", "use": "@vercel/static" }
-  ],
+  "buildCommand": "mkdir -p dist && cp portfolio.html dist/ && cp glassbox-logo.svg dist/ && cp logo.gif dist/",
+  "outputDirectory": "dist",
   "routes": [
     { "src": "/portfolio", "dest": "/portfolio.html" },
     { "src": "/", "dest": "/portfolio.html" }
