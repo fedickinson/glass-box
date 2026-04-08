@@ -1,0 +1,24 @@
+# Videos (hosted on GitHub releases)
+*.mp4
+*.gif
+
+# Python backend
+*.py
+*.ipynb
+*.toml
+*.lock
+requirements.txt
+.venv/
+.pytest_cache/
+__pycache__/
+tests/
+
+# React app source (not needed for static portfolio deploy)
+clinical-tree-ui/
+
+# Misc
+slides/
+*.crdownload
+Untitled
+.vscode/
+CLAUDE.md
