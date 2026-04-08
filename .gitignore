@@ -7,3 +7,12 @@ __pycache__/
 ./clinical-tree-ui/node_modules/
 .DS_Store
 **/node_modules/
+
+# Build artifacts
+clinical-tree-ui/.vite/
+clinical-tree-ui/dist/
+
+# Large / temp files
+demo.mp4
+*.crdownload
+Untitled
