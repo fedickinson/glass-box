@@ -34,7 +34,7 @@
 
       --text-1:  #e2e8f0;
       --text-2:  #8a9bc0;
-      --text-3:  #3d5070;
+      --text-3:  #607898;
 
       /* Node colors — match the app exactly */
       --n-thought:    #4b7fd6;
@@ -185,6 +185,116 @@
       padding: 0 40px;
     }
 
+    /* ─── Demo section ───────────────────────────────────────────────── */
+    #demo {
+      padding: 0;
+      max-width: none;
+      padding-left: 0;
+      padding-right: 0;
+      background: var(--bg);
+    }
+
+    .demo-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 80px 40px 96px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+    }
+
+    .demo-heading {
+      text-align: center;
+    }
+
+    .demo-heading .section-label {
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .demo-heading h2 {
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-1);
+      margin: 0 0 10px;
+    }
+
+    .demo-heading p {
+      font-size: 15px;
+      color: var(--text-2);
+      margin: 0;
+    }
+
+    .demo-video-wrap {
+      position: relative;
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2), 0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    .demo-video-wrap video {
+      width: 100%;
+      display: block;
+    }
+
+    /* Fade bottom edge into page background */
+    .demo-video-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 70%, var(--bg) 100%);
+      pointer-events: none;
+    }
+
+    .demo-play-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7,9,15,0.45);
+      cursor: pointer;
+      transition: background 0.2s;
+      z-index: 2;
+    }
+
+    .demo-play-overlay:hover { background: rgba(7,9,15,0.3); }
+
+    .demo-play-overlay.hidden { display: none; }
+
+    .demo-play-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s, border-color 0.2s;
+      backdrop-filter: blur(8px);
+    }
+
+    .demo-play-overlay:hover .demo-play-btn {
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.4);
+      transform: scale(1.06);
+    }
+
+    .demo-play-btn svg {
+      margin-left: 3px; /* optical center for play triangle */
+    }
+
+    .demo-cta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
     /* Subtle dot grid background for hero */
     #hero::before {
       content: '';
@@ -230,40 +340,75 @@
 
     .hero-left { position: relative; z-index: 2; max-width: 580px; }
 
-    .hero-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+    .hero-team {
+      position: absolute;
+      bottom: 40px;
+      right: 40px;
+      z-index: 3;
+      text-align: right;
       font-family: var(--mono);
       font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      letter-spacing: 0.04em;
       color: var(--text-3);
-      margin-bottom: 20px;
+      line-height: 1.8;
     }
 
-    .hero-eyebrow .dot {
-      width: 4px; height: 4px;
-      border-radius: 50%;
-      background: var(--text-3);
+    .hero-team a {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.15s;
     }
+
+    .hero-team a:hover { color: var(--text-2); }
 
     .win-badge {
       display: inline-flex;
+      flex-direction: column;
+      gap: 5px;
+      border-left: 2px solid var(--gold);
+      padding: 6px 0 6px 12px;
+      margin-bottom: 28px;
+    }
+
+    .win-badge-context {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
-      background: var(--gold-dim);
-      border: 1px solid var(--gold-border);
-      border-radius: 100px;
-      padding: 6px 14px 6px 10px;
-      font-size: 13px;
+      gap: 7px;
+      flex-wrap: wrap;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-2);
+    }
+
+    .win-badge-context .sep {
+      color: var(--text-3);
+    }
+
+    .win-badge-link {
+      color: inherit;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .win-badge-link:hover {
+      color: var(--text-1);
+      border-bottom-color: rgba(255,255,255,0.4);
+    }
+
+    .win-badge-main {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--gold);
-      margin-bottom: 28px;
       letter-spacing: -0.01em;
     }
 
-    .win-badge svg { flex-shrink: 0; }
+    .win-badge-main svg { flex-shrink: 0; opacity: 0.9; }
 
     .hero-title-row {
       display: flex;
@@ -343,6 +488,63 @@
 
     .cta-secondary:hover { color: var(--text-1); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.03); }
 
+    /* ─── Scroll indicator ───────────────────────────────────────────── */
+    .scroll-cue {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-2);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.2s;
+      animation: cue-fade-in 1.2s ease 1.5s both;
+    }
+
+    .scroll-cue:hover { color: var(--text-1); }
+
+    .scroll-cue .cue-label { opacity: 0.85; }
+
+    .scroll-cue .cue-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .scroll-cue .cue-arrow svg {
+      animation: cue-bounce 1.6s ease-in-out infinite;
+    }
+
+    .scroll-cue .cue-arrow svg:nth-child(2) {
+      animation-delay: 0.15s;
+      opacity: 0.6;
+    }
+
+    .scroll-cue .cue-arrow svg:nth-child(3) {
+      animation-delay: 0.3s;
+      opacity: 0.35;
+    }
+
+    @keyframes cue-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(5px); }
+    }
+
+    @keyframes cue-fade-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
     /* ─── Divider ────────────────────────────────────────────────────── */
     .divider {
       max-width: 1200px;
@@ -389,7 +591,7 @@
     .problem-num {
       font-family: var(--mono);
       font-size: 11px;
-      color: var(--text-3);
+      color: var(--text-2);
       letter-spacing: 0.1em;
       margin-bottom: 10px;
     }
@@ -502,80 +704,198 @@
     .step-tag.amber { color: var(--n-decision); border-color: rgba(240, 165, 0, 0.4); background: var(--n-decision-bg); }
     .step-tag.green { color: var(--n-tool); border-color: rgba(16, 185, 129, 0.4); background: var(--n-tool-bg); }
 
-    /* ─── Team section ───────────────────────────────────────────────── */
-    #team { padding-top: 80px; padding-bottom: 80px; }
+    /* ─── Story section ──────────────────────────────────────────────── */
+    #story { padding-top: 80px; padding-bottom: 80px; }
 
-    .team-grid {
+    .story-layout {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-top: 48px;
+      grid-template-columns: 1fr 300px;
+      gap: 56px;
+      align-items: start;
+      margin-top: 8px;
     }
 
-    .team-card {
+    /* ── Narrative beats (left) ── */
+    .story-narrative { display: flex; flex-direction: column; }
+
+    .story-beat {
+      padding-left: 20px;
+      border-left: 2px solid var(--border-sub);
+      margin-bottom: 40px;
+      transition: border-color 0.2s;
+    }
+    .story-beat:last-child { margin-bottom: 0; }
+    .story-beat:hover { border-left-color: var(--accent); }
+
+    .beat-label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .story-lead {
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--text-1);
+      font-weight: 400;
+      margin-bottom: 10px;
+    }
+
+    .story-text {
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text-2);
+      margin-bottom: 10px;
+    }
+    .story-text:last-child { margin-bottom: 0; }
+
+    .story-text em, .story-lead em {
+      color: var(--text-1);
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    /* ── Sidebar (right) ── */
+    .story-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: sticky;
+      top: 72px;
+    }
+
+    .sidebar-win {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--r);
-      padding: 24px;
+      overflow: hidden;
+    }
+
+    .sidebar-win-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-stat {
+      padding: 18px 16px 14px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      transition: border-color 0.2s, transform 0.2s;
+      gap: 4px;
+    }
+    .sidebar-stat:first-child { border-right: 1px solid var(--border); }
+
+    .sidebar-stat-num {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--gold);
+      line-height: 1;
     }
 
-    .team-card:hover {
-      border-color: rgba(75, 127, 214, 0.35);
-      transform: translateY(-2px);
+    .sidebar-stat-label {
+      font-size: 10px;
+      color: var(--text-2);
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .team-avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      background: var(--bg-card-2);
-      border: 1px solid var(--border);
+    .sidebar-event {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 8px;
-      letter-spacing: -0.02em;
+      flex-direction: column;
+      gap: 3px;
+      padding: 12px 16px;
+      text-decoration: none;
+      transition: background 0.15s;
     }
+    .sidebar-event:hover { background: var(--bg-card-2); }
 
-    .team-name {
-      font-size: 15px;
+    .sidebar-event-name {
+      font-size: 13px;
       font-weight: 600;
       color: var(--text-1);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       letter-spacing: -0.01em;
     }
 
-    .team-role {
-      font-size: 12px;
-      color: var(--text-3);
+    .sidebar-event-sub {
+      font-size: 10px;
+      color: var(--text-2);
       font-family: var(--mono);
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
-    .team-links {
+    /* ── Inline story link ── */
+    .story-link {
+      color: var(--accent);
+      text-decoration: underline;
+      text-decoration-color: rgba(75, 127, 214, 0.35);
+      text-underline-offset: 3px;
+      transition: text-decoration-color 0.15s, color 0.15s;
+    }
+    .story-link:hover {
+      color: #7aa8f0;
+      text-decoration-color: rgba(122, 168, 240, 0.7);
+    }
+
+    /* ── Reference cards ── */
+    .story-ref {
+      display: block;
+      padding: 13px 15px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      border-radius: var(--r);
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .story-ref:first-of-type  { border-left-color: #cc0000; }
+    .story-ref:last-of-type   { border-left-color: var(--accent); }
+    .story-ref:hover { background: var(--bg-card-2); }
+
+    .story-ref-source {
       display: flex;
-      gap: 8px;
-      margin-top: 6px;
-    }
-
-    .team-link {
-      display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: 12px;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       color: var(--text-3);
-      padding: 4px 10px;
-      border: 1px solid var(--border-sub);
-      border-radius: 100px;
-      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: 5px;
+    }
+    .story-ref-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .story-ref-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-1);
+      letter-spacing: -0.01em;
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+    .story-ref-url {
+      font-size: 11px;
+      color: var(--text-2);
+      font-family: var(--mono);
     }
 
-    .team-link:hover { color: var(--accent); border-color: rgba(75, 127, 214, 0.4); }
+    @media (max-width: 860px) {
+      .story-layout { grid-template-columns: 1fr; gap: 36px; }
+      .story-sidebar { position: static; }
+    }
 
     /* ─── Stack section ──────────────────────────────────────────────── */
     #stack {
@@ -607,10 +927,54 @@
     }
 
     .stack-chip:hover { border-color: rgba(75, 127, 214, 0.4); color: var(--text-1); }
+    .stack-chip { position: relative; }
 
     .chip-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
+    }
+
+    /* ─── Chip tooltip ───────────────────────────────────────────────── */
+    .chip-tooltip {
+      position: absolute;
+      bottom: calc(100% + 11px);
+      left: 50%;
+      transform: translateX(-50%) translateY(5px);
+      width: 230px;
+      padding: 11px 14px;
+      background: var(--bg-card-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-2);
+      line-height: 1.6;
+      white-space: normal;
+      text-align: left;
+      letter-spacing: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.14s ease, transform 0.14s ease;
+      z-index: 100;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    }
+
+    /* downward arrow */
+    .chip-tooltip::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 8px; height: 8px;
+      background: var(--bg-card-2);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stack-chip:hover .chip-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
 
     /* ─── Footer ─────────────────────────────────────────────────────── */
@@ -648,18 +1012,19 @@
 
     .footer-links a:hover { color: var(--text-2); }
 
-    /* ─── Cornell badge ──────────────────────────────────────────────── */
-    .cornell-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-3);
+    /* ─── Institution marks ──────────────────────────────────────────── */
+    .cornell-mark {
+      background: #B31B1B;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
     }
 
-    .cornell-badge .cornell-mark {
-      background: #B31B1B;
+    .columbia-mark {
+      background: #003087;
       color: #fff;
       font-size: 10px;
       font-weight: 700;
@@ -706,8 +1071,8 @@
   </a>
   <div class="nav-links">
     <a href="#how" class="nav-link">How it works</a>
-    <a href="#team" class="nav-link">Team</a>
-    <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast" target="_blank" class="nav-link">Live demo ↗</a>
+    <a href="#story" class="nav-link">Story</a>
+    <a href="#demo" class="nav-link">Demo</a>
     <a href="https://github.com/fedickinson/glass-box" target="_blank" class="nav-link primary">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
@@ -726,20 +1091,22 @@
   <div class="hero-inner">
     <!-- Left: copy -->
     <div class="hero-left">
-      <div class="hero-eyebrow">
-        <span class="cornell-badge">
-          <span class="cornell-mark">CORNELL TECH</span>
-          × Columbia AI Hackathon
-        </span>
-        <span class="dot"></span>
-        <span>March 2026</span>
-      </div>
-
       <div class="win-badge">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#f0a500" stroke="#f0a500" stroke-width="1.5" stroke-linejoin="round"/>
-        </svg>
-        1st Place — Empire Hacks 2026
+        <span class="win-badge-context">
+          <span class="cornell-mark">CORNELL TECH</span>
+          ×
+          <span class="columbia-mark">COLUMBIA</span>
+          <span class="sep">·</span>
+          <a href="https://cornell-tech-hackathon.vercel.app/#faq" target="_blank" class="win-badge-link">Empire Hacks 2026</a>
+          <span class="sep">·</span>
+          March 2026
+        </span>
+        <span class="win-badge-main">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
+          </svg>
+          1st Place — Best Hackathon Submission
+        </span>
       </div>
 
       <div class="hero-title-row">
@@ -754,7 +1121,7 @@
 
       <div class="hero-ctas">
         <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast" target="_blank" class="cta cta-primary">
-          Live demo
+          Try it yourself
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M7 17L17 7M17 7H7M17 7V17"/>
           </svg>
@@ -768,6 +1135,69 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="hero-team">
+    <a href="https://www.linkedin.com/in/franklindickinson/" target="_blank">Franklin Dickinson</a> ·
+    <a href="https://www.linkedin.com/in/cole-donat/" target="_blank">Cole Donat</a> ·
+    <a href="https://www.linkedin.com/in/seoa/" target="_blank">Alex Seo</a>
+  </div>
+
+  <a href="#problem" class="scroll-cue">
+    <span class="cue-label">Scroll</span>
+    <span class="cue-arrow">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </span>
+  </a>
+</section>
+
+<!-- ─── Demo ────────────────────────────────────────────────────────── -->
+<section id="demo">
+  <div class="demo-inner">
+    <div class="demo-heading">
+      <div class="section-label" style="display:flex;">See it in action</div>
+      <h2>The reasoning tree, live</h2>
+      <p>The tree grows node by node, auto-pauses at decision points, and lets you click into any branch.</p>
+    </div>
+
+    <div class="demo-video-wrap">
+      <video id="demo-video" muted loop playsinline>
+        <source src="demo.mp4" type="video/mp4">
+      </video>
+      <div class="demo-play-overlay" id="demo-play-overlay">
+        <div class="demo-play-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-cta">
+      <a href="https://glass-box-seven.vercel.app/orthopedics/reasoning/fast" target="_blank" class="cta cta-primary">
+        Try it yourself
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M7 17L17 7M17 7H7M17 7V17"/>
+        </svg>
+      </a>
+      <a href="https://github.com/fedickinson/glass-box" target="_blank" class="cta cta-secondary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+        </svg>
+        View source
+      </a>
+    </div>
+
+    <a href="#problem" class="scroll-cue" style="position:relative; animation: none; opacity: 0.7;">
+      <span class="cue-label">Keep reading</span>
+      <span class="cue-arrow">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </span>
+    </a>
   </div>
 </section>
 
@@ -829,47 +1259,90 @@
   </div>
 </section>
 
-<!-- ─── Team ──────────────────────────────────────────────────────────── -->
+<!-- ─── Story ─────────────────────────────────────────────────────────── -->
 <div class="divider" style="max-width:1200px; margin:0 auto; padding:0 40px;"><hr></div>
 
-<section id="team">
-  <div class="section-label">Team</div>
-  <h2 class="section-heading">Built in 48 hours</h2>
-  <p class="section-sub">Empire Hacks 2026 — Cornell Tech × Columbia AI Hackathon, March 20–22.</p>
+<section id="story">
+  <div class="section-label">The story</div>
 
-  <div class="team-grid">
-    <div class="team-card fade-in">
-      <div class="team-avatar">FD</div>
-      <div class="team-name">Franklin Dickinson</div>
-      <div class="team-role">Frontend · Concept · Cornell Tech</div>
-      <div class="team-links">
-        <a href="https://www.linkedin.com/in/franklindickinson/" target="_blank" class="team-link">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
-          LinkedIn
-        </a>
+  <div class="story-layout fade-in">
+
+    <!-- ── Left: narrative beats ──────────────────────────────────── -->
+    <div class="story-narrative">
+      <h2 class="section-heading" style="margin-bottom: 40px;">Where it started</h2>
+
+      <div class="story-beat">
+        <span class="beat-label">The insight</span>
+        <p class="story-lead">
+          Anthropic's interpretability research —
+          <a href="https://www.anthropic.com/research/tracing-thoughts-language-model" target="_blank" class="story-link">Tracing the Thoughts of a Large Language Model</a> —
+          showed that LLMs reason through traceable computational circuits,
+          run parallel pathways simultaneously, and sometimes fabricate
+          plausible-sounding steps when genuinely uncertain.
+        </p>
+        <p class="story-text">
+          If those internal paths can be traced, the question is obvious:
+          <em>why isn't that what a doctor sees?</em>
+        </p>
+      </div>
+
+      <div class="story-beat">
+        <span class="beat-label">The brief</span>
+        <p class="story-text">
+          Empire Hacks 2026's challenge track was <em>The Auditor: Regulated Agents
+          for Trust</em> — build for a domain where mistakes are expensive.
+          The question judges would use: <em>"Could I audit this agent's work and trust it?"</em>
+        </p>
+        <p class="story-text">
+          Traceability weighted 35% of the score. The reasoning chain had to be
+          verifiable at every step — not summarized after the fact, but auditable
+          live. Glassbox's answer: the tree <em>is</em> the audit trail.
+        </p>
       </div>
     </div>
-    <div class="team-card fade-in" style="transition-delay:0.1s">
-      <div class="team-avatar">CD</div>
-      <div class="team-name">Cole Donat</div>
-      <div class="team-role">Backend · Reasoning Engine</div>
-      <div class="team-links">
-        <a href="https://www.linkedin.com/in/cole-donat/" target="_blank" class="team-link">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
-          LinkedIn
+
+    <!-- ── Right: sidebar ────────────────────────────────────────── -->
+    <div class="story-sidebar">
+
+      <!-- Win stats -->
+      <div class="sidebar-win">
+        <div class="sidebar-win-row">
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-num">1st</span>
+            <span class="sidebar-stat-label">Place overall</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-num">30+</span>
+            <span class="sidebar-stat-label">Teams competing</span>
+          </div>
+        </div>
+        <a href="https://cornell-tech-hackathon.vercel.app/" target="_blank" class="sidebar-event">
+          <span class="sidebar-event-name">Empire Hacks 2026
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+          </span>
+          <span class="sidebar-event-sub">Cornell Tech × Columbia AI Hackathon</span>
         </a>
       </div>
-    </div>
-    <div class="team-card fade-in" style="transition-delay:0.2s">
-      <div class="team-avatar">AS</div>
-      <div class="team-name">Alex Seo</div>
-      <div class="team-role">Backend · API Integration</div>
-      <div class="team-links">
-        <a href="https://www.linkedin.com/in/seoa/" target="_blank" class="team-link">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
-          LinkedIn
-        </a>
-      </div>
+
+      <!-- Ref cards -->
+      <a href="https://www.anthropic.com/research/tracing-thoughts-language-model" target="_blank" class="story-ref">
+        <div class="story-ref-source">
+          <span class="story-ref-dot" style="background:#cc0000;"></span>
+          Anthropic Research
+        </div>
+        <div class="story-ref-title">Tracing the Thoughts of a Large Language Model</div>
+        <div class="story-ref-url">anthropic.com/research ↗</div>
+      </a>
+
+      <a href="https://cornell-tech-hackathon.vercel.app/" target="_blank" class="story-ref">
+        <div class="story-ref-source">
+          <span class="story-ref-dot" style="background:#4b7fd6;"></span>
+          Empire Hacks 2026 · Challenge Track
+        </div>
+        <div class="story-ref-title">The Auditor: Regulated Agents for Trust</div>
+        <div class="story-ref-url">cornell-tech-hackathon.vercel.app ↗</div>
+      </a>
+
     </div>
   </div>
 </section>
@@ -882,38 +1355,47 @@
     <div class="stack-chip">
       <div class="chip-dot" style="background:#61dafb;"></div>
       React 18
+      <span class="chip-tooltip">All UI components — the tree viewport, synthesis panel, growth playback controls, and focus system. Functional components with hooks throughout; no class components.</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#3178c6;"></div>
       TypeScript
+      <span class="chip-tooltip">Strict typing across the full frontend: tree node interfaces, the focus state machine, growth playback state, and the transformer layer that converts raw backend data to positioned layout.</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#38bdf8;"></div>
       Tailwind CSS
+      <span class="chip-tooltip">Primary styling system — all layout, spacing, and typography via utility classes co-located with markup. CSS custom properties handle the clinical color tokens (blue = reasoning, amber = decision, green = tool call).</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#f0a500;"></div>
       Framer Motion
+      <span class="chip-tooltip">Node entrance animations and the incremental tree growth effect. Each node fades and scales in as it's revealed during playback. Branch connections animate in sync with their target node.</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#f97316;"></div>
       d3-hierarchy
+      <span class="chip-tooltip">Layout math only — computes node positions and bezier path coordinates for the tree. React renders all SVG directly; d3 never touches the DOM. Clean separation between layout and rendering.</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#646cff;"></div>
       Vite
+      <span class="chip-tooltip">Build tool and dev server. Sub-second HMR made rapid iteration possible during the 48-hour hackathon window without ever waiting on a build.</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#3776ab;"></div>
       Python
+      <span class="chip-tooltip">multibeam_search.py runs parallel chain-of-thought beams over the clinical scenario. entropy_branching.py measures output distribution entropy to detect and trigger decision points.</span>
     </div>
     <div class="stack-chip">
       <div class="chip-dot" style="background:#10b981;"></div>
       DeepSeek
+      <span class="chip-tooltip">LLM powering the parallel reasoning beams. Each branch is an independent chain-of-thought that explores a distinct diagnostic hypothesis — cardiac vs. GI, for example — without knowledge of the other branches.</span>
     </div>
     <div class="stack-chip">
-      <div class="chip-dot" style="background:#000;"></div>
+      <div class="chip-dot" style="background:#aaa;"></div>
       Vercel
+      <span class="chip-tooltip">Frontend deployment. Zero-config, instant preview URLs for sharing the live demo with judges and teammates throughout the hackathon.</span>
     </div>
   </div>
 </section>
@@ -933,6 +1415,16 @@
 
 <!-- ─── JS ────────────────────────────────────────────────────────────── -->
 <script>
+  // ── Demo video play on click ────────────────────────────────────────
+  const demoVideo = document.getElementById('demo-video');
+  const demoOverlay = document.getElementById('demo-play-overlay');
+  if (demoOverlay && demoVideo) {
+    demoOverlay.addEventListener('click', () => {
+      demoOverlay.classList.add('hidden');
+      demoVideo.play();
+    });
+  }
+
   // ── Scroll fade-in ─────────────────────────────────────────────────
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
