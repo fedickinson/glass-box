@@ -1,8 +1,3 @@
 {
-  "buildCommand": "mkdir -p dist && cp portfolio.html dist/ && cp glassbox-logo.svg dist/ && cp logo.gif dist/",
-  "outputDirectory": "dist",
-  "routes": [
-    { "src": "/portfolio", "dest": "/portfolio.html" },
-    { "src": "/", "dest": "/portfolio.html" }
-  ]
+  "cleanUrls": true
 }
