@@ -4,6 +4,7 @@
     { "source": "/", "destination": "/portfolio", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/orthopedics/:path*", "destination": "/index.html" }
+    { "source": "/orthopedics/(.*)", "destination": "/index.html" },
+    { "source": "/orthopedics", "destination": "/index.html" }
   ]
 }
