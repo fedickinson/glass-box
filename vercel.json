@@ -1,7 +1,6 @@
 {
-  "cleanUrls": true,
   "redirects": [
-    { "source": "/", "destination": "/portfolio", "permanent": false }
+    { "source": "/", "destination": "/portfolio.html", "permanent": false }
   ],
   "rewrites": [
     { "source": "/orthopedics/(.*)", "destination": "/index.html" },
