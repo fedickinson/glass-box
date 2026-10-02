@@ -1,2 +1,3 @@
-# Videos (hosted on GitHub releases)
+# Videos: the originals stay out; web-encoded copies in clinical-tree-ui/public/media ship with the site
 *.mp4
+!clinical-tree-ui/public/media/*.mp4
