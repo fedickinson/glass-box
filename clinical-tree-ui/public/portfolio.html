@@ -1058,6 +1058,12 @@
 
     @media (max-width: 600px) {
       .hero-title { font-size: 40px; }
+      /* Phones: one line of links. "How it works" is the next section down anyway. */
+      .nav-links { gap: 2px; }
+      .nav-link { white-space: nowrap; padding: 6px 10px; }
+      .nav-links .nav-link[href="#how"] { display: none; }
+      /* A hover tooltip near the right edge widened the page by 10px. */
+      html, body { overflow-x: clip; }
     }
   </style>
 </head>
